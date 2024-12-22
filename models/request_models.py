@@ -25,9 +25,6 @@ class GenerateEssayRequest(BaseModel):
     selected_references: List[ReferenceObject]
     citationStyle: str
     wordCount: int
-    intro_words: Optional[int] = Field(default=300, description="Word count for the introduction")
-    body_words: Optional[int] = Field(default=2000, description="Word count for the body")
-    conclusion_words: Optional[int] = Field(default=300, description="Word count for the conclusion")
 
 class GenerateEssayResponse(BaseModel):
     essay: str
