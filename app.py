@@ -1,8 +1,18 @@
 import uvicorn
 from fastapi import FastAPI
-from main import router  # Importing the router from main.py
+from fastapi.middleware.cors import CORSMiddleware
+from main import router
 
 app = FastAPI()
+
+# Adding CORS Middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[""],  # Replace "" with specific domains in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Including the router for APIs
 app.include_router(router)
