@@ -151,6 +151,9 @@ async def fetch_springer_articles(query: str):
         raise HTTPException(status_code=404, detail="No articles found for the given query.")
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    results_dir = os.path.join(OUTPUT_DIR,"results")
+    if not os.path.exists(results_dir):
+        os.makedirs(results_dir)
     output_file = os.path.join(OUTPUT_DIR, f"springer_papers_{query}_{timestamp}.xlsx") # Added query to filename
     df = pd.DataFrame(records)
     df.to_excel(output_file, index=False)
