@@ -5,6 +5,15 @@ from main import router
 
 app = FastAPI()
 
+# Adding CORS Middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[""],  # Replace "" with specific domains in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Including the router for APIs
 app.include_router(router)
 
