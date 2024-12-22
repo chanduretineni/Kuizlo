@@ -6,7 +6,7 @@ from fastapi import HTTPException
 import pandas as pd
 from datetime import datetime
 import os
-
+from models.request_models import ReferenceObject,QueryResponse
 async def fetch_ieee_articles(query: str):
     params = {
         "apikey": IEEE_API_KEY,
@@ -155,4 +155,7 @@ async def fetch_springer_articles(query: str):
     df = pd.DataFrame(records)
     df.to_excel(output_file, index=False)
 
-    return {"message": "File created successfully.", "file_path": output_file}
+    # Convert the records into the response model
+    references = [ReferenceObject(AuthorName=rec["Authors"], TitleName=rec["Title"], Year=rec["Publication Date"].split("-")[0]) for rec in records]
+
+    return QueryResponse(references=references)

@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from api.reference_files import ieee_article_search
 from api.reference_files import springer_article_search
 from api.generate_essay_api import generate_essay, humanize_essay
-from models.request_models import QueryRequest, GenerateEssayRequest, GenerateEssayResponse, HumanizeEssay, HumanizeEssayResponse
+from models.request_models import QueryRequest, GenerateEssayRequest, GenerateEssayResponse, HumanizeEssay, HumanizeEssayResponse, QueryResponse
 
 router = APIRouter()
 
@@ -12,7 +12,7 @@ async def search_ieee(request: QueryRequest):
     return await ieee_article_search(request)
 
 # Route for Springer article search
-@router.post("/search/springer")
+@router.post("/search/springer",response_model=QueryResponse)
 async def search_springer(request: QueryRequest):
     return await springer_article_search(request)
 

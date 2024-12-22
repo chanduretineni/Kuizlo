@@ -1,7 +1,7 @@
 import os
 from openai import OpenAI
 import openai
-from models.request_models import GenerateEssayRequest, GenerateEssayResponse, Reference
+from models.request_models import GenerateEssayRequest, GenerateEssayResponse, Reference, ReferenceObject
 from config import OPENAI_API_KEY
 import logging
 
@@ -60,12 +60,12 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-async def generate_introduction(topic: str, references: list[Reference], target_words: int = 200) -> str:
+async def generate_introduction(topic: str, references: list[ReferenceObject], target_words: int = 200) -> str:
     try:
         generated_word_count = 0
         introduction = ""
         while generated_word_count < target_words:
-            ref_text = "\n".join([f"{ref.id}: {ref.author} ({ref.year}). {ref.title}." for ref in references])
+            ref_text = "\n".join([f"{ref.AuthorName} ({ref.Year}). {ref.TitleName}." for ref in references])
             prompt = f"""Write an introduction for an essay on \"{topic}\". Aim for {target_words} words.
                             Include:
                             - A hook to grab the reader's attention.
@@ -154,7 +154,7 @@ async def generate_essay_logic(request: GenerateEssayRequest):
         introduction = await generate_introduction(request.topic, request.selected_references, request.intro_words)
         generated_words = len(introduction.split())
 
-        body = await generate_body_paragraph(request.topic, request.selected_references, request.body_words, request.target_total_words, generated_words)
+        body = await generate_body_paragraph(request.topic, request.selected_references, request.body_words, request.wordCount, generated_words)
         generated_words += len(body.split())
 
         conclusion = await generate_conclusion(request.topic, request.selected_references, request.conclusion_words)

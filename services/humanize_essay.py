@@ -40,7 +40,7 @@ def humanize_essay_logic(essay_text : HumanizeEssay, max_retries=40, polling_int
 
                     if output_text and err_code == 0:
                         print(f"Humanized essay retrieved successfully in {retries + 1} retries.")
-                        return HumanizeEssayResponse(humanized_essay=output_text, provided_input=essay_text.essay_txt)
+                        return HumanizeEssayResponse(humanized_essay=output_text)
 
                 time.sleep(polling_interval)  # Wait before retrying
                 retries += 1
