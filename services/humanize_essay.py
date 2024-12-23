@@ -7,6 +7,7 @@ hix_api_key = HIX_API_KEY
 
 def humanize_essay_logic(essay_text : HumanizeEssay, max_retries=40, polling_interval=5):
     """Pass the essay through HIX Bypass API to humanize it."""
+    start_time = time.time()
     url = HUMANISE_SUBMIT_URL
     headers = {
         "accept": "application/json",
@@ -40,6 +41,9 @@ def humanize_essay_logic(essay_text : HumanizeEssay, max_retries=40, polling_int
 
                     if output_text and err_code == 0:
                         print(f"Humanized essay retrieved successfully in {retries + 1} retries.")
+                        end_time = time.time()
+                        execution_time = end_time - start_time
+                        print(f"Humanize generation logic executed in {execution_time:.2f} seconds for {len(output_text.split())} words.")
                         return HumanizeEssayResponse(humanized_essay=output_text)
 
                 time.sleep(polling_interval)  # Wait before retrying
