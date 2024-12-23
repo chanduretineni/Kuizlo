@@ -1,5 +1,5 @@
-Error generating introduction: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************t5QA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_api_key'}}
+Saudi Aramco: Powering the Future ofSaudi Aramco: Powering
 
-An unexpected error occurred in body paragraph: 'ReferenceObject' object has no attribute 'id'
+Saudi Aramco, a global energy leader, plays a crucial role in the transition to sustainable energy. Its investments in hydrogen technologies, as noted by Nuttall and Powell (2024), reflect a commitment to innovation. Additionally, urban planning strategies discussed by Binate
 
-Error generating conclusion: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************t5QA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_api_key'}}
+Saudi Aramco's impact is evident in various
