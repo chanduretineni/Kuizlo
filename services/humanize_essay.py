@@ -16,7 +16,8 @@ def humanize_essay_logic(essay_text : HumanizeEssay, max_retries=40, polling_int
     }
     data = {
         "input": essay_text.essay_txt,
-        "mode": "Latest"  # Modes: "Fast", "Balanced", "Aggressive", "Latest"
+        "mode": "Latest",  # Modes: "Fast", "Balanced", "Aggressive", "Latest"
+        "language": "en"  # Specify English explicitly
     }
     
     try:

@@ -9,6 +9,7 @@ class ReferenceObject(BaseModel):
     AuthorName: str
     TitleName: str
     Year : str
+    Publisher : str
 
 class QueryResponse(BaseModel):
     references: List[ReferenceObject]
