@@ -22,9 +22,15 @@ class Reference(BaseModel):
     author: str
     year: int
 
+class EssayReferenceObject(BaseModel):
+    AuthorName: str
+    TitleName: str
+    Year : str
+    Publisher : str
+
 class GenerateEssayRequest(BaseModel):
     topic: str
-    selected_references: List[ReferenceObject]
+    selected_references: List[EssayReferenceObject]
     citationStyle: str
     wordCount: int
 

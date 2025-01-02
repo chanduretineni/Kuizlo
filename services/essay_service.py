@@ -3,7 +3,7 @@ import time
 import re
 from openai import OpenAI
 import openai
-from models.request_models import GenerateEssayRequest, GenerateEssayResponse, Reference, ReferenceObject
+from models.request_models import GenerateEssayRequest, GenerateEssayResponse,EssayReferenceObject
 from config import OPENAI_API_KEY
 import logging
 from nltk.tokenize import sent_tokenize
@@ -54,7 +54,7 @@ async def generate_text(prompt: str, target_words: int, tolerance: float = 0.15)
         return f"An error occurred: {e}"
 
 
-async def generate_introduction(topic: str, references: list[ReferenceObject], target_words, citation_style: str) -> str:
+async def generate_introduction(topic: str, references: list[EssayReferenceObject], target_words, citation_style: str) -> str:
     ref_text = "\n".join([f"{ref.AuthorName} ({ref.Year}). {ref.TitleName}." for ref in references])
     prompt = f"""Write an introduction for an essay on \"{topic}\". Aim for {target_words} words.
                     Include:
@@ -66,7 +66,7 @@ async def generate_introduction(topic: str, references: list[ReferenceObject], t
                     {ref_text}, {citation_style}"""
     return await generate_text(prompt, target_words)
 
-async def generate_body_paragraph(topic: str, references: list[ReferenceObject], target_words: int, target_total_words: int, citation_style: str) -> str:
+async def generate_body_paragraph(topic: str, references: list[EssayReferenceObject], target_words: int, target_total_words: int, citation_style: str) -> str:
     ref_text = "\n".join([f"{ref.AuthorName} ({ref.Year}). {ref.TitleName}." for ref in references])
     prompt = f"""Write the body of an essay on \"{topic}\". Aim for {target_words} words. Use the following references (for context and in text citations): {ref_text} , {citation_style}
     The essay should be around {target_total_words} words."""
@@ -81,11 +81,11 @@ Summarize these key points:
         prompt += f"\nDiscuss this implication or suggestion for future research: {implication} and include in text citations if required {citation_style}"
     return await generate_text(prompt, target_words)
 
-async def generate_references(references: list[ReferenceObject], citation_style: str) -> str:
+async def generate_references(references: list[EssayReferenceObject], citation_style: str) -> str:
     """
     Generate a list of references in the requested citation style.
 
-    :param references: List of ReferenceObject containing details of the references.
+    :param references: List of EssayReferenceObject containing details of the references.
     :param citation_style: The citation style to use (e.g., APA7, MLA8, Harvard, Vancouver, IEEE).
     :return: A formatted string of references.
     """
