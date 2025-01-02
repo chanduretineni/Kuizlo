@@ -159,6 +159,6 @@ async def fetch_springer_articles(query: str):
     df.to_excel(output_file, index=False)
 
     # Convert the records into the response model
-    references = [ReferenceObject(AuthorName=rec["Authors"], TitleName=rec["Title"], Year=rec["Publication Date"].split("-")[0], Publisher=rec["Publisher"]) for rec in records]
+    references = [ReferenceObject(AuthorName=rec["Authors"], TitleName=rec["Title"], Year=rec["Publication Date"].split("-")[0], Publisher=rec["Publisher"], Abstract= rec["Abstract"]) for rec in records]
 
     return QueryResponse(references=references)

@@ -10,6 +10,7 @@ class ReferenceObject(BaseModel):
     TitleName: str
     Year : str
     Publisher : str
+    Abstract : str
 
 class QueryResponse(BaseModel):
     references: List[ReferenceObject]

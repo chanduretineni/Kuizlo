@@ -127,18 +127,24 @@ async def generate_references(references: list[ReferenceObject], citation_style:
 
 def process_essay(essay_text: str) -> str:
     """
-    Process the raw essay text to structure it with clear headings and subheadings.
+    Process the raw essay text to structure it with clear HTML headings and subheadings.
 
     :param essay_text: The raw essay text with ### and ** used as markers.
-    :return: A structured essay text with proper headings and subheadings.
+    :return: A structured essay text with proper HTML headings and subheadings.
     """
-    # Replace ### with main headings
-    essay_text = re.sub(r"###\s*(.*)", r"\n\n# \1\n", essay_text)
+    import re
 
-    # Replace ** with subheadings
-    essay_text = re.sub(r"\*\*\s*(.*)\s*\*\*", r"\n## \1\n", essay_text)
+    # Replace ### with <h1> (main headings)
+    essay_text = re.sub(r"###\s*(.*)", r"<h1>\1</h1>", essay_text)
+
+    # Replace ** with <h2> (subheadings)
+    essay_text = re.sub(r"\*\*\s*(.*?)\s*\*\*", r"<h2>\1</h2>", essay_text)
+
+    # Ensure line breaks for better HTML formatting
+    essay_text = essay_text.replace("\n", "<br>")
 
     return essay_text
+
 
 
 
@@ -165,13 +171,13 @@ async def generate_essay_logic(request: GenerateEssayRequest):
         os.makedirs(results_folder, exist_ok=True)
         file_name = os.path.join(results_folder, f"{request.topic.replace(' ', '_')}.txt")
         with open(file_name, "w", encoding="utf-8") as file:
-            file.write(essay_text)
+            file.write(processed_essay)
 
         end_time = time.time()
         execution_time = end_time - start_time
-        logging.info(f"Essay generation executed in {execution_time:.2f} seconds for {len(essay_text.split())} words.")
+        logging.info(f"Essay generation executed in {execution_time:.2f} seconds for {len(processed_essay.split())} words.")
 
-        return GenerateEssayResponse(essay=essay_text, file_path=file_name)
+        return GenerateEssayResponse(essay=processed_essay)
     except Exception as e:
         logging.error(f"Error in essay generation logic: {e}")
         return GenerateEssayResponse(essay=f"Error: {e}", file_path=None)
