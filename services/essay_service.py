@@ -135,10 +135,10 @@ def process_essay(essay_text: str) -> str:
     import re
 
     # Replace ### with <h1> (main headings)
-    essay_text = re.sub(r"###\s*(.*)", r"<h1>\1</h1>", essay_text)
+    essay_text = re.sub(r"###\s*(.*)", r"<h3>\1</h3>", essay_text)
 
     # Replace ** with <h2> (subheadings)
-    essay_text = re.sub(r"\*\*\s*(.*?)\s*\*\*", r"<h2>\1</h2>", essay_text)
+    essay_text = re.sub(r"\*\*\s*(.*?)\s*\*\*", r"<h4>\1</h4>", essay_text)
 
     # Ensure line breaks for better HTML formatting
     essay_text = essay_text.replace("\n", "<br>")
