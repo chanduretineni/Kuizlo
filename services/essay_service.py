@@ -14,8 +14,7 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
-
-async def generate_text(prompt: str, target_words: int, tolerance: float = 0.15) -> str:
+async def generate_text(prompt: str, target_words: int, tolerance: float = 0.15, continuation: str = None) -> str:
     try:
         max_words = int(target_words * (1 + tolerance))
         generated_text = ""
@@ -29,14 +28,16 @@ async def generate_text(prompt: str, target_words: int, tolerance: float = 0.15)
                 temperature=0.7,
             )
             partial_text = response.choices[0].message.content
+            
+            if continuation:
+                prompt += f"\nContinue from: {partial_text[-50:]}"  
+            
             sentences.extend(sent_tokenize(partial_text))
             generated_text = " ".join(sentences)
 
-            # Break if the generated text is long enough
             if len(generated_text.split()) >= target_words:
                 break
 
-        # Adjust to the max_words limit while respecting sentence boundaries
         final_sentences = []
         word_count = 0
         for sentence in sentences:
@@ -56,29 +57,31 @@ async def generate_text(prompt: str, target_words: int, tolerance: float = 0.15)
 
 async def generate_introduction(topic: str, references: list[EssayReferenceObject], target_words, citation_style: str) -> str:
     ref_text = "\n".join([f"{ref.AuthorName} ({ref.Year}). {ref.TitleName}." for ref in references])
-    prompt = f"""Write an introduction for an essay on \"{topic}\". Aim for {target_words} words.
+    prompt = f"""Write an essay introduction for the topic \"{topic}\". Aim for {target_words} words.
                     Include:
                     - A hook to grab the reader's attention.
                     - Background information providing context.
                     - A clear research question or problem statement.
                     - A concise thesis statement.
-                    Use the following references (for context and in text citations):
-                    {ref_text}, {citation_style}"""
+                    Use the following references (for context and in-text citations):
+                    {ref_text}, {citation_style}.
+                    Do not include a heading for the introduction."""
     return await generate_text(prompt, target_words)
 
 async def generate_body_paragraph(topic: str, references: list[EssayReferenceObject], target_words: int, target_total_words: int, citation_style: str) -> str:
     ref_text = "\n".join([f"{ref.AuthorName} ({ref.Year}). {ref.TitleName}." for ref in references])
-    prompt = f"""Write the body of an essay on \"{topic}\". Aim for {target_words} words. Use the following references (for context and in text citations): {ref_text} , {citation_style}
+    prompt = f"""Write the body paragraphs of an essay on \"{topic}\". Aim for {target_words} words. Use the following references (for context and in-text citations): {ref_text}, {citation_style}.
     The essay should be around {target_total_words} words."""
     return await generate_text(prompt, target_words)
 
-async def generate_conclusion(thesis_statement: str, key_points: list[str], target_words: int,citation_style: str, implication: str = None) -> str:
+async def generate_conclusion(thesis_statement: str, key_points: list[str], target_words: int, citation_style: str, implication: str = None) -> str:
     prompt = f"""Write a conclusion of approximately {target_words} words.
-Restate the thesis (paraphrased): {thesis_statement}
+Restate the thesis (paraphrased): {thesis_statement}.
 Summarize these key points:
-{chr(10).join([f'- {point}' for point in key_points])}"""
+{chr(10).join([f'- {point}' for point in key_points])}.
+Do not include a heading for the conclusion."""
     if implication:
-        prompt += f"\nDiscuss this implication or suggestion for future research: {implication} and include in text citations if required {citation_style}"
+        prompt += f"\nDiscuss this implication or suggestion for future research: {implication} and include in-text citations if required {citation_style}"
     return await generate_text(prompt, target_words)
 
 async def generate_references(references: list[EssayReferenceObject], citation_style: str) -> str:
@@ -92,7 +95,7 @@ async def generate_references(references: list[EssayReferenceObject], citation_s
     try:
         formatted_references = []
 
-        for ref in references:
+        for idx, ref in enumerate(references, start=1):
             if citation_style.lower() == "apa7":
                 formatted_references.append(
                     f"{ref.AuthorName} ({ref.Year}). {ref.TitleName}. {ref.Publisher}."
@@ -111,7 +114,7 @@ async def generate_references(references: list[EssayReferenceObject], citation_s
                 )
             elif citation_style.lower() == "ieee":
                 formatted_references.append(
-                    f"{ref.AuthorName}, \"{ref.TitleName},\" {ref.Publisher}, {ref.Year}."
+                    f"[{idx}] {ref.AuthorName}, \"{ref.TitleName},\" {ref.Publisher}, {ref.Year}."
                 )
             else:  # Default to APA7
                 formatted_references.append(
@@ -123,6 +126,7 @@ async def generate_references(references: list[EssayReferenceObject], citation_s
     except Exception as e:
         logging.error(f"Error generating references: {e}")
         return f"Error generating references: {e}"
+
     
 
 def process_essay(essay_text: str) -> str:
@@ -150,6 +154,7 @@ def process_essay(essay_text: str) -> str:
 
 async def generate_essay_logic(request: GenerateEssayRequest):
     try:
+        mongo()
         start_time = time.time()
         intro_words = int(request.wordCount * 0.15)
         conclusion_words = int(request.wordCount * 0.15)

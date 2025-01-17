@@ -8,3 +8,10 @@ requests
 python-dotenv
 openpyxl
 nltk
+pymongo
+python-jose
+passlib
+google-auth
+pyjwt
+python-multipart
+bcrypt

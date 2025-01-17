@@ -42,3 +42,21 @@ class HumanizeEssay(BaseModel):
 
 class HumanizeEssayResponse(BaseModel):
     humanized_essay : str
+
+class FineTuneModelRequest(BaseModel):
+    prompt_text : str
+
+class FineTuneModelResponse(BaseModel):
+    model_output : str
+
+class SignupRequest(BaseModel):
+    name: str = None
+    email: str = None
+    password: str = None  # Optional for Google/Apple signups
+    provider: str  # 'email', 'google', or 'apple'
+    token: str = None  # Required for Google/Apple signups
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str
+    user: dict

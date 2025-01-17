@@ -20,3 +20,6 @@ SPRINGER_API_URL = "http://api.springernature.com/metadata/json"
 
 # Output Directory
 OUTPUT_DIR = "results"
+
+#Google Client ID
+GOOGLE_CLIENT_ID="170343969782-ku0ulmvbet8ct9dncgnuk9qj2l9c1lvv.apps.googleusercontent.com"

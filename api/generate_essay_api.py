@@ -14,3 +14,9 @@ def humanize_essay(request: HumanizeEssay):
         return humanize_essay_logic(request)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+async def generate_essay_with_instructions(request: GenerateEssayRequest):
+    try:
+        return await generate_essay__with_instruction_logic(request)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
