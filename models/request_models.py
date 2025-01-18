@@ -50,13 +50,17 @@ class FineTuneModelResponse(BaseModel):
     model_output : str
 
 class SignupRequest(BaseModel):
-    name: str = None
-    email: str = None
+    name: str 
+    email: str 
     password: str = None  # Optional for Google/Apple signups
     provider: str  # 'email', 'google', or 'apple'
-    token: str = None  # Required for Google/Apple signups
 
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str
     user: dict
+
+class LoginRequest(BaseModel):
+    email : str
+    password : str = None
+    provider : str

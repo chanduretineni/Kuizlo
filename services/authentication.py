@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from datetime import datetime, timedelta
 from jose import jwt, JWTError
 from passlib.context import CryptContext
-from models.request_models import SignupRequest, TokenResponse
+from models.request_models import SignupRequest, LoginRequest
 import requests
 import google.auth.transport.requests
 from google.oauth2.id_token import verify_oauth2_token
@@ -15,7 +15,7 @@ from fastapi.responses import JSONResponse
 # Configuration
 SECRET_KEY = "1M16ZIr5lUwiNVdNgJOhJNFws5B1xIXn"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+TOKEN_EXPIRATION_DAYS = 30
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 USER_DATA_COLLECTION = db["user_data"]
@@ -27,12 +27,11 @@ def hash_password(password: str) -> str:
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
-def create_access_token(data: dict, expires_delta: timedelta = None):
+def create_access_token(data: dict):
     to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    expire = datetime.utcnow() + timedelta(days=TOKEN_EXPIRATION_DAYS)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
 def verify_google_token(token: str):
     try:
         payload = verify_oauth2_token(token, google.auth.transport.requests.Request(), GOOGLE_CLIENT_ID)
@@ -63,29 +62,15 @@ async def signup_process(signup_request: SignupRequest):
             "auth_provider": "email",
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow(),
-            "is_active": True,
             "roles": ["user"]
         }
-    elif signup_request.provider == "google":
-        payload = verify_google_token(signup_request.token)
+    elif signup_request.provider == "google" or signup_request.provider == "apple":
         user_data = {
-            "name": payload.get("name"),
-            "email": payload["email"],
+            "name": signup_request.name,
+            "email": signup_request.email,
             "auth_provider": "google",
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow(),
-            "is_active": True,
-            "roles": ["user"]
-        }
-    elif signup_request.provider == "apple":
-        payload = verify_apple_token(signup_request.token)
-        user_data = {
-            "name": signup_request.name,
-            "email": payload["email"],
-            "auth_provider": "apple",
-            "created_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow(),
-            "is_active": True,
             "roles": ["user"]
         }
     else:
@@ -112,35 +97,9 @@ async def signup_process(signup_request: SignupRequest):
         )
     return {"message": "User registered successfully"}
 
-async def login_process(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
-    # Check for Google token in cookies
-    google_token = request.cookies.get("google_token") 
-
-    if google_token:
-        try:
-            payload = verify_google_token(google_token)
-            user = USER_DATA_COLLECTION.find_one({"email": payload["email"]})
-            if user:
-                # If user exists in database, return success
-                return {
-                    "message": "Google login successful",
-                    "user": {
-                        "email": user["email"],
-                        "name": user["name"],
-                        "roles": user["roles"]
-                    }
-                }
-            else:
-                # If user doesn't exist, handle accordingly (e.g., redirect to signup)
-                raise HTTPException(status_code=404, detail="User not found") 
-
-        except Exception as e:
-            # Handle Google token verification errors
-            raise HTTPException(status_code=401, detail="Invalid Google token")
-
-    # Check if access_token cookie exists
+async def login_process(request: Request, form_data: LoginRequest):
+    
     access_token = request.cookies.get("access_token")
-
     if access_token:
         try:
             payload = jwt.decode(access_token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -168,10 +127,10 @@ async def login_process(request: Request, form_data: OAuth2PasswordRequestForm =
             return response
 
     # If access_token is not valid, check email and password
-    email = form_data.username
+    email = form_data.email
+    provider = form_data.provider
     password = form_data.password
-
-    if email and password:
+    if email:
         user = USER_DATA_COLLECTION.find_one({"email": email})
         if not user:
             raise HTTPException(status_code=401, detail="Invalid email or password")
