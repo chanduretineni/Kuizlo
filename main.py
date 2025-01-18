@@ -2,10 +2,9 @@ from fastapi import APIRouter, Depends
 from api.reference_files import ieee_article_search
 from api.reference_files import springer_article_search
 from api.generate_essay_api import generate_essay, humanize_essay, generate_essay_with_instructions
-from models.request_models import QueryRequest, GenerateEssayRequest, GenerateEssayResponse, HumanizeEssay, HumanizeEssayResponse, QueryResponse, FineTuneModelResponse, FineTuneModelRequest, SignupRequest,TokenResponse
+from models.request_models import QueryRequest, GenerateEssayRequest, GenerateEssayResponse, HumanizeEssay, HumanizeEssayResponse, QueryResponse, FineTuneModelResponse, FineTuneModelRequest, SignupRequest,TokenResponse, LoginRequest
 from api.fine_tuned_models_api import fine_tune_request
 from api.auth import signup, login
-from fastapi.security import OAuth2PasswordRequestForm
 
 router = APIRouter()
 
@@ -46,5 +45,5 @@ async def signup_api(signup_request: SignupRequest):
 
 #Route for Login
 @router.post("/auth/login", response_model=TokenResponse)
-async def login_api(form_data: OAuth2PasswordRequestForm = Depends()):
+async def login_api(form_data: LoginRequest):
         return await login(form_data)

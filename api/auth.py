@@ -1,7 +1,6 @@
 from fastapi import HTTPException, Depends
-from models.request_models import SignupRequest, TokenResponse
+from models.request_models import SignupRequest,LoginRequest
 from services.authentication import signup_process,login_process
-from fastapi.security import OAuth2PasswordRequestForm
 
 async def signup(signup_request: SignupRequest):
     try:
@@ -10,7 +9,7 @@ async def signup(signup_request: SignupRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+async def login(form_data : LoginRequest):
     try:
         return await login_process(form_data)
     except Exception as e:

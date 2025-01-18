@@ -1,6 +1,4 @@
 from fastapi import FastAPI, HTTPException, Depends, Request
-from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel
 from datetime import datetime, timedelta
 from jose import jwt, JWTError
 from passlib.context import CryptContext
