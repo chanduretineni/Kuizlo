@@ -154,7 +154,6 @@ def process_essay(essay_text: str) -> str:
 
 async def generate_essay_logic(request: GenerateEssayRequest):
     try:
-        mongo()
         start_time = time.time()
         intro_words = int(request.wordCount * 0.15)
         conclusion_words = int(request.wordCount * 0.15)

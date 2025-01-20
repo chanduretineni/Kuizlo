@@ -1,11 +1,12 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
 from api.reference_files import ieee_article_search
 from api.reference_files import springer_article_search
 from api.generate_essay_api import generate_essay, humanize_essay, generate_essay_with_instructions
-from models.request_models import QueryRequest, GenerateEssayRequest, GenerateEssayResponse, HumanizeEssay, HumanizeEssayResponse, QueryResponse, FineTuneModelResponse, FineTuneModelRequest, SignupRequest,TokenResponse, LoginRequest
+from models.request_models import QueryRequest, GenerateEssayRequest, GenerateEssayResponse, HumanizeEssay, HumanizeEssayResponse, QueryResponse, FineTuneModelResponse, FineTuneModelRequest, SignupRequest,TokenResponse, LoginRequest,QuestionsResponse,AnswersRequest,FinalResponse, InitialRequest
 from api.fine_tuned_models_api import fine_tune_request
 from api.auth import signup, login
-
+from services.essay_generation_with_instructions import create_essay_outline, generate_final_essay,process_uploaded_file,generate_questions_from_context
+import json
 router = APIRouter()
 
 # Route for IEEE article search
@@ -47,3 +48,55 @@ async def signup_api(signup_request: SignupRequest):
 @router.post("/auth/login", response_model=TokenResponse)
 async def login_api(form_data: LoginRequest):
         return await login(form_data)
+
+@router.post("/submit-answers", response_model=FinalResponse)
+async def submit_answers(answers_request: AnswersRequest):
+    # Retrieve original context using session_id
+    # Create outline
+    outline = await create_essay_outline(
+        answers_request
+    )
+    
+    # Generate final essay
+    essay = await generate_final_essay(
+        outline,
+        answers_request.answers
+    )
+    
+    return FinalResponse(
+        essay=essay,
+        outline=outline,
+        references=["Reference 1", "Reference 2"]
+    )
+
+@router.post("/generate-questions", response_model=QuestionsResponse)
+async def generate_questions(
+    file: UploadFile = File(...),
+    request_data: str = Form(...),  # This will receive the JSON string
+):
+    try:
+        # Parse the JSON string from form-data
+        request_json = json.loads(request_data)
+        
+        # Validate the JSON data using the Pydantic model
+        initial_request = InitialRequest(**request_json)
+        
+        # Process the file  
+        file_content = await process_uploaded_file(file)
+        
+        # Generate questions
+        questions = await generate_questions_from_context(
+            initial_request.instructions,
+            file_content,
+            initial_request.additional_context
+        )
+        
+        return QuestionsResponse(
+            questions=questions,
+            session_id="unique_session_id"
+        )
+        
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON format in request_data")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))

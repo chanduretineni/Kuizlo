@@ -15,3 +15,8 @@ google-auth
 pyjwt
 python-multipart
 bcrypt
+pytesseract
+PyPDF2
+bs4
+matplotlib
+IPython

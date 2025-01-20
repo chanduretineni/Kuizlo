@@ -1,5 +1,7 @@
 from pydantic import BaseModel,Field
-from typing import List, Optional
+from typing import List, Optional, Dict
+from enum import Enum
+
 
 class QueryRequest(BaseModel):
     title: str
@@ -45,9 +47,13 @@ class HumanizeEssayResponse(BaseModel):
 
 class FineTuneModelRequest(BaseModel):
     prompt_text : str
+    topic : str
 
 class FineTuneModelResponse(BaseModel):
-    model_output : str
+    essay_id : str
+    model_output: str
+    html_content: Optional[str] = None
+    file_path : str
 
 class SignupRequest(BaseModel):
     name: str 
@@ -64,3 +70,63 @@ class LoginRequest(BaseModel):
     email : str
     password : str = None
     provider : str
+
+
+class FileType(str, Enum):
+    PDF = "pdf"
+    JPEG = "jpeg"
+    PNG = "png"
+
+class InitialRequest(BaseModel):
+    instructions: str
+    file_type: FileType
+    additional_context: Optional[str] = None
+
+class GeneratedQuestion(BaseModel):
+    id: str
+    question: str
+    question_type: str  # "reference", "length", "topic_specific"
+    options: Optional[List[str]] = None
+
+class QuestionsResponse(BaseModel):
+    questions: List[GeneratedQuestion]
+    session_id: str
+
+class Answer(BaseModel):
+    question_id: str
+    question: str
+    question_type: str
+    answer: str
+
+class AnswersRequest(BaseModel):
+    session_id: str
+    file_content: str
+    instructions: str
+    answers: List[Answer]
+
+
+class Subsection(BaseModel):
+    title: str
+    key_points: List[str]
+
+class OutlineSection(BaseModel):
+    title: str
+    key_points: List[str]
+    subsections: Optional[List[Subsection]] = None
+    word_count: int
+
+class EssayOutline(BaseModel):
+    title: str
+    target_audience: str
+    writing_style: str
+    reference_style: str
+    total_word_count: int
+    introduction: OutlineSection
+    main_sections: List[OutlineSection]
+    conclusion: OutlineSection
+    references_section: Optional[OutlineSection] = None
+
+class FinalResponse(BaseModel):
+    essay: str
+    outline: EssayOutline
+    references: Optional[List[str]]
