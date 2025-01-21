@@ -14,12 +14,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# Mount the static files directory
-app.mount(
-    "/static",  # URL path prefix
-    StaticFiles(directory="/Users/retinenisaichandu/Documents/untitled folder/Kuizlo/results"),  # Directory path
-    name="static",
-)
+# # Mount the static files directory
+# app.mount(
+#     "/static",  # URL path prefix
+#     StaticFiles(directory="/Users/retinenisaichandu/Documents/untitled folder/Kuizlo/results"),  # Directory path
+#     name="static",
+# )
 # Including the router for APIs
 app.include_router(router)
 
