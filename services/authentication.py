@@ -47,7 +47,7 @@ async def signup_process(signup_request: SignupRequest):
     if signup_request.email:
         existing_user = USER_DATA_COLLECTION.find_one({"email": signup_request.email})
         if existing_user:
-            raise HTTPException(status_code=400, detail="Email already registered")
+            raise HTTPException(status_code=200, detail="Email already registered")
 
     if signup_request.provider == "email":
         if not signup_request.password:
