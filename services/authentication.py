@@ -52,7 +52,7 @@ async def signup_process(signup_request: SignupRequest):
                 "user": {
                     "email": existing_user["email"],
                     "name": existing_user["name"],
-                    "roles": existing_user["roles"]
+                    # "roles": existing_user["roles"]
                 },
                 "status": "existing_user"
             }
