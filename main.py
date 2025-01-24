@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
+from typing import Optional
 from api.reference_files import ieee_article_search
 from api.reference_files import springer_article_search
 from api.generate_essay_api import generate_essay, humanize_essay, generate_essay_with_instructions
@@ -71,29 +72,27 @@ async def submit_answers(answers_request: AnswersRequest):
 
 @router.post("/generate-questions", response_model=QuestionsResponse)
 async def generate_questions(
-    file: UploadFile = File(...),
-    request_data: str = Form(...),  # This will receive the JSON string
+    content: Optional[str] = Form(None),
+    file: Optional[UploadFile] = File(None)
 ):
     try:
-        # Parse the JSON string from form-data
-        request_json = json.loads(request_data)
-        
-        # Validate the JSON data using the Pydantic model
-        initial_request = InitialRequest(**request_json)
+        # Validate input: at least one of `file` or `content` must be provided
+        if not file and not content:
+            raise ValueError("At least one of `file` or `content` must be provided.")
         
         # Process the file  
-        file_content = await process_uploaded_file(file)
+        file_content = ""
+        if file:
+            file_content = await process_uploaded_file(file)
         
         # Generate questions
         questions = await generate_questions_from_context(
-            initial_request.instructions,
-            file_content,
-            initial_request.additional_context
+            content,
+            file_content
         )
         
         return QuestionsResponse(
-            questions=questions,
-            session_id="unique_session_id"
+            questions=questions
         )
         
     except json.JSONDecodeError:

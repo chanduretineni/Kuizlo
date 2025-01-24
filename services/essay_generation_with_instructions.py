@@ -1,5 +1,5 @@
 import os
-from typing import List, Optional, Dict, Tuple
+from typing import List, Optional, Dict, Set, Tuple
 import openai
 from fastapi import HTTPException, UploadFile
 import PyPDF2
@@ -59,7 +59,6 @@ async def process_uploaded_file(file: UploadFile) -> str:
 async def generate_questions_from_context(
     instructions: str,
     file_content: str,
-    additional_context: Optional[str]
 ) -> List[GeneratedQuestion]:
     """
     Generate relevant questions based on the context using OpenAI API
@@ -76,7 +75,6 @@ async def generate_questions_from_context(
         
         Instructions: {instructions}
         Content: {file_content[:1000]}
-        Additional Context: {additional_context or ''}
         
         Required question types:
         1. Reference requirements (with options)
@@ -254,80 +252,6 @@ async def create_essay_outline(request: AnswersRequest) -> EssayOutline:
     except Exception as e:
         logger.error(f"Error creating outline: {str(e)}")
         raise HTTPException(status_code=500, detail="Error creating outline")
-    
-# async def generate_final_essay(
-#     outline: EssayOutline,
-#     answers: List[Answer]
-# ) -> str:
-#     """
-#     Generate the final essay using the outline and OpenAI API
-#     """
-#     try:
-#         # Construct prompt for OpenAI with detailed structure
-        
-#         # Formatting each section and its key points
-#         sections_text = ""
-#         sections_text += f"Introduction:\n- {outline.introduction.title}\n"
-#         for point in outline.introduction.key_points:
-#             sections_text += f"  - {point}\n"
-
-#         for section in outline.main_sections:
-#             sections_text += f"\nMain Section - {section.title}:\n"
-#             for point in section.key_points:
-#                 sections_text += f"  - {point}\n"
-#             if section.subsections:
-#                 for subsection in section.subsections:
-#                     for subtitle, subpoints in subsection.items():
-#                         sections_text += f"\n  Subsection - {subtitle}:\n"
-#                         for subpoint in subpoints:
-#                             sections_text += f"    - {subpoint}\n"
-
-#         sections_text += f"\nConclusion:\n- {outline.conclusion.title}\n"
-#         for point in outline.conclusion.key_points:
-#             sections_text += f"  - {point}\n"
-
-#         # Format answers and other user preferences
-#         answers_text = "\n".join([f"Q{a.question_id}: {a.answer}" for a in answers])
-        
-#         prompt = f"""
-#         Generate a detailed and well-structured academic essay based on the given outline. Use all the provided points to their fullest extent, integrating them cohesively into the essay. The essay should align with the target audience and adhere to the specified writing style and reference style.
-        
-#         **Title**: {outline.title}
-        
-#         **Outline Structure and Content**:
-#         {sections_text}
-
-#         **Target Audience**: {outline.target_audience}
-#         **Writing Style**: {outline.writing_style}
-#         **Reference Style**: {outline.reference_style}
-#         **Estimated Total Word Count**: {outline.total_word_count}
-
-#         **User Preferences**:
-#         {answers_text}
-        
-#         Ensure appropriate academic tone and logical coherence throughout. Proper citations should be included as per the reference style.
-#         """
-        
-#         response = client.chat.completions.create(
-#             model="gpt-4",
-#             messages=[
-#                 {"role": "system", "content": "You are an academic writing assistant."},
-#                 {"role": "user", "content": prompt}
-#             ],
-#             temperature=0.7,
-#             max_tokens=4000
-#         )
-        
-#         return response.choices[0].message.content
-    
-#     except Exception as e:
-#         logger.error(f"Error generating essay: {str(e)}")
-#         raise HTTPException(status_code=500, detail="Error generating essay")
-
-
-# Configure logging
-
-
 
 class CitationTracker:
     def __init__(self):

@@ -90,7 +90,6 @@ class GeneratedQuestion(BaseModel):
 
 class QuestionsResponse(BaseModel):
     questions: List[GeneratedQuestion]
-    session_id: str
 
 class Answer(BaseModel):
     question_id: str
