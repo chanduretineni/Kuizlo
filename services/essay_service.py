@@ -23,27 +23,106 @@ def format_citation_instruction(citation_style: str) -> str:
     }
     return citation_formats.get(citation_style.lower(), citation_formats["apa7"])
 
+# async def generate_text(prompt: str, target_words: int, tolerance: float = 0.15) -> str:
+#     """
+#     Generate text while maintaining coherence for longer content.
+    
+#     Args:
+#         prompt: The initial prompt for text generation
+#         target_words: Desired word count
+#         tolerance: Allowed deviation from target word count (e.g., 0.15 = ±15%)
+    
+#     Returns:
+#         Generated text meeting the word count requirements
+#     """
+#     try:
+#         max_words = int(target_words * (1 + tolerance))
+#         min_words = int(target_words * (1 - tolerance))
+#         generated_text = ""
+#         sentences = []
+        
+#         # Initialize conversation with full context
+#         messages = [
+#             {"role": "system", "content": "You are a professional academic writer. Provide well-structured, coherent text with appropriate transitions and academic language."},
+#             {"role": "user", "content": prompt}
+#         ]
+
+#         while True:
+#             response = client.chat.completions.create(
+#                 model="gpt-4",
+#                 messages=messages,
+#                 max_tokens=int(target_words * 2),  # Increased token limit for better context
+#                 temperature=0.7,
+#             )
+            
+#             partial_text = response.choices[0].message.content
+#             current_sentences = sent_tokenize(partial_text)
+#             sentences.extend(current_sentences)
+#             generated_text = " ".join(sentences)
+#             current_word_count = len(generated_text.split())
+            
+#             # Check if we've reached the target word count
+#             if current_word_count >= min_words:
+#                 break
+                
+#             # If we need more content, update the prompt for continuation
+#             if current_word_count < min_words:
+#                 # Get the last 2-3 sentences for context
+#                 context = " ".join(sentences[-3:])
+#                 continuation_prompt = f"""{prompt}
+
+# Additional Continuation Instructions:
+# - Continue the text coherently from the previous context
+# - Maintain the exact same writing style, tone, and academic rigor
+# - Use the same citation and structural guidelines from the original prompt
+# - Previous context: {context}
+# - Current word count: {current_word_count}
+# - Target word count: {target_words}
+
+# Continue writing to seamlessly reach the target word count while maintaining the original text's flow and academic standards."""
+                
+#                 messages = [
+#                     messages[0],  # System message
+#                     {"role": "user", "content": prompt},  # Original full prompt
+#                     {"role": "assistant", "content": generated_text},  # Previous generated content
+#                     {"role": "user", "content": continuation_prompt}  # Enhanced continuation prompt
+#                 ]
+
+#         # Trim excess content while maintaining coherence
+#         final_sentences = []
+#         word_count = 0
+        
+#         for sentence in sentences:
+#             sentence_words = len(sentence.split())
+#             if word_count + sentence_words > max_words:
+#                 # Only add the sentence if we're further from target without it
+#                 if abs(target_words - word_count) > abs(target_words - (word_count + sentence_words)):
+#                     final_sentences.append(sentence     )
+#                 break
+#             final_sentences.append(sentence)
+#             word_count += sentence_words
+
+#         final_text = " ".join(final_sentences)
+#         logging.info(f"Generated text with {len(final_text.split())} words (target: {target_words})")
+#         return final_text
+
+#     except openai.OpenAIError as e:
+#         logging.error(f"OpenAI API Error: {e}")
+#         return f"Error: {e}"
+#     except Exception as e:
+#         logging.error(f"Unexpected Error: {e}")
+#         return f"An error occurred: {e}"
+
 async def generate_text(prompt: str, target_words: int, tolerance: float = 0.15) -> str:
-    """
-    Generate text while maintaining coherence for longer content.
-    
-    Args:
-        prompt: The initial prompt for text generation
-        target_words: Desired word count
-        tolerance: Allowed deviation from target word count (e.g., 0.15 = ±15%)
-    
-    Returns:
-        Generated text meeting the word count requirements
-    """
     try:
         max_words = int(target_words * (1 + tolerance))
         min_words = int(target_words * (1 - tolerance))
-        generated_text = ""
-        sentences = []
+        generated_paragraphs = []
+        total_sentences = []
         
-        # Initialize conversation
+        # Initialize conversation with full context
         messages = [
-            {"role": "system", "content": "You are a professional academic writer. Provide well-structured, coherent text with appropriate transitions and academic language."},
+            {"role": "system", "content": "You are a professional academic writer. Provide well-structured, coherent text with appropriate transitions and academic language. Use double line breaks to separate paragraphs. Ensure each paragraph is substantial and meaningful. Preserve section headings."},
             {"role": "user", "content": prompt}
         ]
 
@@ -51,14 +130,37 @@ async def generate_text(prompt: str, target_words: int, tolerance: float = 0.15)
             response = client.chat.completions.create(
                 model="gpt-4",
                 messages=messages,
-                max_tokens=int(target_words * 2),  # Increased token limit for better context
+                max_tokens=4000,
                 temperature=0.7,
             )
             
             partial_text = response.choices[0].message.content
-            current_sentences = sent_tokenize(partial_text)
-            sentences.extend(current_sentences)
-            generated_text = " ".join(sentences)
+            
+            # Preserve headings and split paragraphs
+            sections = re.split(r'(\n*(?:##\s*.*\n+))', partial_text)
+            processed_sections = []
+            
+            for i in range(0, len(sections), 2):
+                # Add back the heading if it exists
+                if i+1 < len(sections):
+                    processed_sections.append(sections[i+1].strip())
+                
+                # Process paragraphs
+                paragraphs = [p.strip() for p in re.split(r'\n\s*\n', sections[i]) if p.strip()]
+                
+                # Filter paragraphs, keeping those with at least 30 words
+                filtered_paragraphs = []
+                for paragraph in paragraphs:
+                    if len(paragraph.split()) >= 30:
+                        filtered_paragraphs.append(paragraph)
+                        total_sentences.extend(sent_tokenize(paragraph))
+                
+                # Add filtered paragraphs
+                if filtered_paragraphs:
+                    processed_sections.append('\n\n'.join(filtered_paragraphs))
+            
+            # Join processed sections
+            generated_text = '\n\n'.join(processed_sections)
             current_word_count = len(generated_text.split())
             
             # Check if we've reached the target word count
@@ -67,35 +169,35 @@ async def generate_text(prompt: str, target_words: int, tolerance: float = 0.15)
                 
             # If we need more content, update the prompt for continuation
             if current_word_count < min_words:
-                # Get the last 2-3 sentences for context
-                context = " ".join(sentences[-3:])
-                continuation_prompt = f"""Continue the text coherently from this point, maintaining the same style and topic. 
-                Previous context: {context}
-                Current word count: {current_word_count}
-                Target word count: {target_words}
-                Continue writing to reach the target while maintaining flow:"""
+                context = " ".join(total_sentences[-3:])
+                continuation_prompt = f"""{prompt}
+
+Additional Continuation Instructions:
+- Continue the text coherently from the previous context
+- Maintain the exact same writing style, tone, and academic rigor
+- Preserve existing section headings
+- Ensure each new paragraph is substantial (at least 30 words)
+- Previous context: {context}
+- Current word count: {current_word_count}
+- Target word count: {target_words}
+
+Continue writing to seamlessly reach the target word count."""
                 
                 messages = [
-                    messages[0],  # Keep the system message
-                    {"role": "assistant", "content": generated_text},
-                    {"role": "user", "content": continuation_prompt}
+                    messages[0],  # System message
+                    {"role": "user", "content": prompt},  # Original full prompt
+                    {"role": "assistant", "content": generated_text},  # Previous generated content
+                    {"role": "user", "content": continuation_prompt}  # Enhanced continuation prompt
                 ]
 
         # Trim excess content while maintaining coherence
-        final_sentences = []
-        word_count = 0
+        final_text = generated_text
         
-        for sentence in sentences:
-            sentence_words = len(sentence.split())
-            if word_count + sentence_words > max_words:
-                # Only add the sentence if we're further from target without it
-                if abs(target_words - word_count) > abs(target_words - (word_count + sentence_words)):
-                    final_sentences.append(sentence)
-                break
-            final_sentences.append(sentence)
-            word_count += sentence_words
-
-        final_text = " ".join(final_sentences)
+        # Ensure we don't exceed max words
+        words = final_text.split()
+        if len(words) > max_words:
+            final_text = " ".join(words[:max_words])
+        
         logging.info(f"Generated text with {len(final_text.split())} words (target: {target_words})")
         return final_text
 
@@ -110,17 +212,41 @@ async def generate_text(prompt: str, target_words: int, tolerance: float = 0.15)
 async def generate_introduction(topic: str, references: list[EssayReferenceObject], target_words: int, citation_style: str) -> str:
     ref_text = "\n".join([f"- {ref.AuthorName} ({ref.Year}): {ref.TitleName}" for ref in references])
     citation_instruction = format_citation_instruction(citation_style)
+    # Calculate words per paragraph based on total words
+    paragraph_distribution = {
+        'hook': int(target_words * 0.25),
+        'context': int(target_words * 0.4),
+        'thesis': int(target_words * 0.35)
+    }
     
     prompt = f"""Write an academic essay introduction on "{topic}". Target length: {target_words} words.
 
-Key requirements:
-1. Divide the introduction into 2-3 clear paragraphs:
-   - First paragraph: Begin with a compelling hook that draws readers in
-   - Second paragraph: Provide relevant background context using the provided references
-   - Final paragraph: Present the research question and thesis statement
+Precise Paragraph Composition:
+1. First Paragraph (Hook): {paragraph_distribution['hook']} words
+   - Create a compelling opening that grabs reader's attention
+   - Use a thought-provoking statement, statistic, or provocative question
+   - Directly relate to the essay topic
+   - Establish initial context
+   - AVOID any concluding statements or phrases
 
-2. Include at least 2-3 in-text citations from the provided references
-3. {citation_instruction}
+2. Second Paragraph (Background Context): {paragraph_distribution['context']} words
+   - Provide comprehensive background information
+   - Use 2-3 citations from the provided references
+   - Explain the historical, theoretical, or current landscape of the topic
+   - Demonstrate scholarly understanding
+   - AVOID summative or concluding language
+
+3. Final Paragraph (Thesis and Direction): {paragraph_distribution['thesis']} words
+   - Clearly state the research question or main argument
+   - Outline the key points that will be explored in the body
+   - Provide a roadmap for the essay's structure
+   - End with a strong, precise thesis statement
+   - EXPLICITLY AVOID any phrases like "in conclusion" or summary statements
+
+Citation Requirements:
+- {citation_instruction}
+- Minimum 2-3 in-text citations from the following references:
+{ref_text}
 
 Formatting:
 - Use double line breaks between paragraphs
@@ -136,6 +262,7 @@ Additional guidelines:
 - Don't include introduction heading
 - Use specific examples/statistics from the references when possible
 - Citations must be from the provided reference list only
+- STRICTLY AVOID any concluding language or summary statements
 
 Remember: Use double line breaks (two newline characters) between paragraphs for clear separation."""
 
@@ -145,17 +272,38 @@ Remember: Use double line breaks (two newline characters) between paragraphs for
 async def generate_conclusion(topic: str, references: list[EssayReferenceObject], target_words: int, citation_style: str) -> str:
     ref_text = "\n".join([f"- {ref.AuthorName} ({ref.Year}): {ref.TitleName}" for ref in references])
     citation_instruction = format_citation_instruction(citation_style)
-    
+    # Calculate words per paragraph based on total words
+    paragraph_distribution = {
+        'summary': int(target_words * 0.35),
+        'implications': int(target_words * 0.35),
+        'future_research': int(target_words * 0.3)
+    }
+
     prompt = f"""Write a conclusion for an academic essay on "{topic}". Target length: {target_words} words.
 
-Key requirements:
-1. Divide the conclusion into 2-3 clear paragraphs:
-   - First paragraph: Restate the thesis and summarize main findings
-   - Second paragraph: Discuss broader implications
-   - Final paragraph: Suggest future research directions and end with a meaningful closing statement
+Precise Paragraph Composition:
+1. First Paragraph (Summary and Reaffirmation): {paragraph_distribution['summary']} words
+   - Concisely restate the thesis
+   - Summarize the key arguments presented in the body
+   - Reflect on the main findings
+   - Do NOT simply copy earlier text verbatim
 
-2. Include 1-2 final supporting citations
-3. {citation_instruction}
+2. Second Paragraph (Broader Implications): {paragraph_distribution['implications']} words
+   - Discuss the wider significance of the research
+   - Explain how the findings contribute to the broader field
+   - Use 1-2 citations to support broader context
+   - Connect the specific research to larger academic discourse
+
+3. Final Paragraph (Future Directions): {paragraph_distribution['future_research']} words
+   - Suggest potential avenues for future research
+   - Highlight unanswered questions or limitations of current research
+   - End with a forward-looking, thought-provoking statement
+   - Demonstrate the ongoing relevance of the topic
+
+Citation Requirements:
+- {citation_instruction}
+- Optional 1-2 citations from the following references:
+{ref_text}
 
 Formatting:
 - Use double line breaks between paragraphs
