@@ -1,14 +1,16 @@
 import os
 from typing import List, Optional, Dict, Set, Tuple
 import openai
+import uuid
 from fastapi import HTTPException, UploadFile
 import PyPDF2
 from PIL import Image
+from pymongo import MongoClient
 import pytesseract
 import io
 import logging
 from datetime import datetime
-from models.request_models import GeneratedQuestion,Answer, EssayOutline, AnswersRequest
+from models.request_models import GeneratedQuestion,Answer, EssayOutline, AnswersRequest, QuestionsResponse
 from config import OPENAI_API_KEY
 from openai import OpenAI
 import json
@@ -22,6 +24,13 @@ logger = logging.getLogger(__name__)
 
 # Initialize OpenAI client
 client = OpenAI(api_key=OPENAI_API_KEY)
+
+# MongoDB Connection
+mongo_client = MongoClient("mongodb+srv://chandu:6264@chanduretineni.zfbcc.mongodb.net/?retryWrites=true&w=majority&appName=ChanduRetineni")
+db = mongo_client["Kuizlo"]
+essays_collection = db["essays"]
+session_questions_collection = db["session_questions"] 
+
 
 # In-memory session storage (replace with Redis/DB in production)
 sessions = {}
@@ -55,7 +64,36 @@ async def process_uploaded_file(file: UploadFile) -> str:
     except Exception as e:
         logger.error(f"Error processing file: {str(e)}")
         raise HTTPException(status_code=500, detail="Error processing file")
+    
+# Detect writing type based on instructions and content
+def detect_writing_type(instructions: str, content: str) -> str:
+    writing_types = {
+        'essay': ['analyze', 'discuss', 'compare', 'contrast', 'evaluate', 'argument', 'thesis'],
+        'review': ['critique', 'review', 'assessment', 'evaluation', 'feedback'],
+        'article': ['inform', 'report', 'describe', 'explain', 'article', 'publication'],
+        'research paper': ['research', 'study', 'methodology', 'findings', 'academic'],
+        'blog post': ['blog', 'personal', 'narrative', 'opinion', 'informal'],
+        'report': ['report', 'business', 'technical', 'summary', 'findings']
+    }
+    
+    # Convert instructions and content to lowercase for case-insensitive matching
+    instructions_lower = instructions.lower()
+    content_lower = content.lower()
+    
+    # Check for writing type matches
+    for writing_type, keywords in writing_types.items():
+        if any(keyword in instructions_lower or keyword in content_lower for keyword in keywords):
+            return writing_type
+    
+    # Default to a generic type if no specific match is found
+    return 'academic writing'
 
+def get_session_id():
+    while True:
+        session_id = str(uuid.uuid4())  # Generate a new session ID
+        if not session_questions_collection.find_one({"session_id": session_id}):
+            return session_id  # Return the unique ID if it's not in the coll
+        
 async def generate_questions_from_context(
     instructions: str,
     file_content: str,
@@ -64,9 +102,14 @@ async def generate_questions_from_context(
     Generate relevant questions based on the context using OpenAI API
     """
     try:
+        session_id = get_session_id()
+        # Detect the writing type
+        writing_type = detect_writing_type(instructions, file_content)
+
         # Construct prompt for OpenAI
         prompt = f"""
-        Based on the following essay instructions and context, generate 10 relevant questions.
+        Based on the following instructions and context, generate 10 relevant questions to write a detailed {writing_type}.
+        Detected Writing Type: {writing_type}
         For each question, provide the following in JSON format:
         - question_id (q1, q2, etc.)
         - question_text
@@ -78,10 +121,12 @@ async def generate_questions_from_context(
         
         Required question types:
         1. Reference requirements (with options)
+        2. Word Count (open-ended)
         2. Essay structure preferences (with options)
         3. Specific topic focus areas (with options)
         4. Target audience (open-ended)
         5. Style and tone preferences (open-ended)
+        6. If topic is essay or review as referency type (with options like APA,ML8, IEEE, Harvard and chicago)
         
         Format your response as a JSON array of question objects.
         Example format:
@@ -121,6 +166,14 @@ async def generate_questions_from_context(
                 )
                 for q in questions_data
             ]
+            # Save session and questions in MongoDB
+            session_questions_collection.insert_one({
+                "session_id": session_id,
+                "instructions": instructions,
+                "file_content": file_content,
+                "questions": [q.model_dump() for q in questions],
+            })
+
             
         except json.JSONDecodeError:
             # Fallback if GPT doesn't return proper JSON
@@ -149,7 +202,16 @@ async def generate_questions_from_context(
                     )
                 )
         
-        return questions
+            # Save session and questions in MongoDB
+            session_questions_collection.insert_one({
+                "session_id": session_id,
+                "instructions": instructions,
+                "file_content": file_content,
+                "questions": [q.dict() for q in questions],
+            })
+
+        return QuestionsResponse(session_id=session_id, questions=questions)
+
     
     except Exception as e:
         logger.error(f"Error generating questions: {str(e)}")
@@ -164,6 +226,17 @@ async def create_essay_outline(request: AnswersRequest) -> EssayOutline:
     Create a detailed essay outline based on the answers and context provided
     """
     try:
+
+        # Fetch the session document from MongoDB using session_id
+        session_document = session_questions_collection.find_one({"session_id": request.session_id})
+
+        if not session_document:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        # Extract instructions and file content from the document
+        instructions = session_document.get("instructions", "")
+        file_content = session_document.get("file_content", "")
+
         # Organize answers by question type
         answers_by_type = {}
         for answer in request.answers:
@@ -176,13 +249,13 @@ async def create_essay_outline(request: AnswersRequest) -> EssayOutline:
         prompt = f"""
         Create a detailed academic essay outline based on the following information:
 
-        Essay Instructions: {request.instructions}
+        Essay Instructions: {instructions}
         
         Context from Questions and Answers:
         {json.dumps(answers_by_type, indent=2)}
         
         File Content Summary:
-        {request.file_content[:500]}
+        {file_content[:500]}
 
         Create a comprehensive outline following this exact structure (respond in JSON format):
         {{

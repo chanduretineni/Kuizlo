@@ -23,106 +23,17 @@ def format_citation_instruction(citation_style: str) -> str:
     }
     return citation_formats.get(citation_style.lower(), citation_formats["apa7"])
 
-# async def generate_text(prompt: str, target_words: int, tolerance: float = 0.15) -> str:
-#     """
-#     Generate text while maintaining coherence for longer content.
-    
-#     Args:
-#         prompt: The initial prompt for text generation
-#         target_words: Desired word count
-#         tolerance: Allowed deviation from target word count (e.g., 0.15 = ±15%)
-    
-#     Returns:
-#         Generated text meeting the word count requirements
-#     """
-#     try:
-#         max_words = int(target_words * (1 + tolerance))
-#         min_words = int(target_words * (1 - tolerance))
-#         generated_text = ""
-#         sentences = []
-        
-#         # Initialize conversation with full context
-#         messages = [
-#             {"role": "system", "content": "You are a professional academic writer. Provide well-structured, coherent text with appropriate transitions and academic language."},
-#             {"role": "user", "content": prompt}
-#         ]
-
-#         while True:
-#             response = client.chat.completions.create(
-#                 model="gpt-4",
-#                 messages=messages,
-#                 max_tokens=int(target_words * 2),  # Increased token limit for better context
-#                 temperature=0.7,
-#             )
-            
-#             partial_text = response.choices[0].message.content
-#             current_sentences = sent_tokenize(partial_text)
-#             sentences.extend(current_sentences)
-#             generated_text = " ".join(sentences)
-#             current_word_count = len(generated_text.split())
-            
-#             # Check if we've reached the target word count
-#             if current_word_count >= min_words:
-#                 break
-                
-#             # If we need more content, update the prompt for continuation
-#             if current_word_count < min_words:
-#                 # Get the last 2-3 sentences for context
-#                 context = " ".join(sentences[-3:])
-#                 continuation_prompt = f"""{prompt}
-
-# Additional Continuation Instructions:
-# - Continue the text coherently from the previous context
-# - Maintain the exact same writing style, tone, and academic rigor
-# - Use the same citation and structural guidelines from the original prompt
-# - Previous context: {context}
-# - Current word count: {current_word_count}
-# - Target word count: {target_words}
-
-# Continue writing to seamlessly reach the target word count while maintaining the original text's flow and academic standards."""
-                
-#                 messages = [
-#                     messages[0],  # System message
-#                     {"role": "user", "content": prompt},  # Original full prompt
-#                     {"role": "assistant", "content": generated_text},  # Previous generated content
-#                     {"role": "user", "content": continuation_prompt}  # Enhanced continuation prompt
-#                 ]
-
-#         # Trim excess content while maintaining coherence
-#         final_sentences = []
-#         word_count = 0
-        
-#         for sentence in sentences:
-#             sentence_words = len(sentence.split())
-#             if word_count + sentence_words > max_words:
-#                 # Only add the sentence if we're further from target without it
-#                 if abs(target_words - word_count) > abs(target_words - (word_count + sentence_words)):
-#                     final_sentences.append(sentence     )
-#                 break
-#             final_sentences.append(sentence)
-#             word_count += sentence_words
-
-#         final_text = " ".join(final_sentences)
-#         logging.info(f"Generated text with {len(final_text.split())} words (target: {target_words})")
-#         return final_text
-
-#     except openai.OpenAIError as e:
-#         logging.error(f"OpenAI API Error: {e}")
-#         return f"Error: {e}"
-#     except Exception as e:
-#         logging.error(f"Unexpected Error: {e}")
-#         return f"An error occurred: {e}"
 
 async def generate_text(prompt: str, target_words: int, tolerance: float = 0.15) -> str:
+    """Generates text from a prompt, optimized for fewer OpenAI calls and paragraph preservation."""
     try:
         max_words = int(target_words * (1 + tolerance))
         min_words = int(target_words * (1 - tolerance))
-        generated_paragraphs = []
+        generated_text = ""
         total_sentences = []
-        
-        # Initialize conversation with full context
+
         messages = [
-            {"role": "system", "content": "You are a professional academic writer. Provide well-structured, coherent text with appropriate transitions and academic language. Use double line breaks to separate paragraphs. Ensure each paragraph is substantial and meaningful. Preserve section headings."},
+            {"role": "system", "content": "You are a professional academic writer. Provide well-structured, coherent text with appropriate transitions and academic language. Use double line breaks to separate substantial paragraphs (at least 30 words each). Preserve section headings using ## for subheadings and ### for main headings."},
             {"role": "user", "content": prompt}
         ]
 
@@ -130,76 +41,53 @@ async def generate_text(prompt: str, target_words: int, tolerance: float = 0.15)
             response = client.chat.completions.create(
                 model="gpt-4",
                 messages=messages,
-                max_tokens=4000,
+                max_tokens=int(target_words * 1.5),  # Reduced max_tokens slightly
                 temperature=0.7,
             )
-            
+
             partial_text = response.choices[0].message.content
+            generated_text += partial_text # directly append partial text for better continuity.
             
-            # Preserve headings and split paragraphs
-            sections = re.split(r'(\n*(?:##\s*.*\n+))', partial_text)
-            processed_sections = []
+            # Extract paragraphs and filter short ones immediately
+            paragraphs = [p.strip() for p in re.split(r'\n\s*\n', generated_text) if p.strip()]
+            filtered_paragraphs = [p for p in paragraphs if len(p.split()) >= 30]
+
+            # Reconstruct the text from filtered paragraphs.
+            generated_text = "\n\n".join(filtered_paragraphs)
+            total_sentences = []
+            for paragraph in filtered_paragraphs:
+                total_sentences.extend(sent_tokenize(paragraph))
             
-            for i in range(0, len(sections), 2):
-                # Add back the heading if it exists
-                if i+1 < len(sections):
-                    processed_sections.append(sections[i+1].strip())
-                
-                # Process paragraphs
-                paragraphs = [p.strip() for p in re.split(r'\n\s*\n', sections[i]) if p.strip()]
-                
-                # Filter paragraphs, keeping those with at least 30 words
-                filtered_paragraphs = []
-                for paragraph in paragraphs:
-                    if len(paragraph.split()) >= 30:
-                        filtered_paragraphs.append(paragraph)
-                        total_sentences.extend(sent_tokenize(paragraph))
-                
-                # Add filtered paragraphs
-                if filtered_paragraphs:
-                    processed_sections.append('\n\n'.join(filtered_paragraphs))
-            
-            # Join processed sections
-            generated_text = '\n\n'.join(processed_sections)
             current_word_count = len(generated_text.split())
-            
-            # Check if we've reached the target word count
+
             if current_word_count >= min_words:
                 break
-                
-            # If we need more content, update the prompt for continuation
-            if current_word_count < min_words:
-                context = " ".join(total_sentences[-3:])
-                continuation_prompt = f"""{prompt}
 
-Additional Continuation Instructions:
-- Continue the text coherently from the previous context
-- Maintain the exact same writing style, tone, and academic rigor
-- Preserve existing section headings
-- Ensure each new paragraph is substantial (at least 30 words)
-- Previous context: {context}
-- Current word count: {current_word_count}
-- Target word count: {target_words}
+            if current_word_count < min_words and len(total_sentences)> 0:
+                context = " ".join(total_sentences[-5:]) # Increased context window slightly
+                continuation_prompt = f"""Continue the text below, maintaining the same writing style, tone, and academic rigor. Ensure each new paragraph is substantial (at least 30 words). Preserve existing section headings. Previous context: {context}"""
 
-Continue writing to seamlessly reach the target word count."""
-                
                 messages = [
-                    messages[0],  # System message
-                    {"role": "user", "content": prompt},  # Original full prompt
-                    {"role": "assistant", "content": generated_text},  # Previous generated content
-                    {"role": "user", "content": continuation_prompt}  # Enhanced continuation prompt
+                    messages[0],
+                    {"role": "user", "content": prompt},
+                    {"role": "assistant", "content": generated_text},
+                    {"role": "user", "content": continuation_prompt}
+                ]
+            elif current_word_count < min_words and len(total_sentences) == 0:
+                continuation_prompt = f"""Continue the text below, maintaining the same writing style, tone, and academic rigor. Ensure each new paragraph is substantial (at least 30 words). Preserve existing section headings."""
+                messages = [
+                    messages[0],
+                    {"role": "user", "content": prompt},
+                    {"role": "user", "content": continuation_prompt}
                 ]
 
-        # Trim excess content while maintaining coherence
-        final_text = generated_text
-        
-        # Ensure we don't exceed max words
-        words = final_text.split()
-        if len(words) > max_words:
-            final_text = " ".join(words[:max_words])
-        
-        logging.info(f"Generated text with {len(final_text.split())} words (target: {target_words})")
-        return final_text
+        # Final word count check and trimming (more efficient)
+        final_words = generated_text.split()
+        if len(final_words) > max_words:
+            generated_text = " ".join(final_words[:max_words])
+
+        logging.info(f"Generated text with {len(generated_text.split())} words (target: {target_words})")
+        return generated_text
 
     except openai.OpenAIError as e:
         logging.error(f"OpenAI API Error: {e}")
@@ -207,6 +95,7 @@ Continue writing to seamlessly reach the target word count."""
     except Exception as e:
         logging.error(f"Unexpected Error: {e}")
         return f"An error occurred: {e}"
+
 
 # Update the introduction generation prompt
 async def generate_introduction(topic: str, references: list[EssayReferenceObject], target_words: int, citation_style: str) -> str:

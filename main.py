@@ -53,6 +53,7 @@ async def login_api(form_data: LoginRequest):
 @router.post("/submit-answers", response_model=FinalResponse)
 async def submit_answers(answers_request: AnswersRequest):
     # Retrieve original context using session_id
+
     # Create outline
     outline = await create_essay_outline(
         answers_request
@@ -91,9 +92,7 @@ async def generate_questions(
             file_content
         )
         
-        return QuestionsResponse(
-            questions=questions
-        )
+        return questions
         
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON format in request_data")

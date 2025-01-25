@@ -90,6 +90,7 @@ class GeneratedQuestion(BaseModel):
 
 class QuestionsResponse(BaseModel):
     questions: List[GeneratedQuestion]
+    session_id : str
 
 class Answer(BaseModel):
     question_id: str
@@ -98,10 +99,8 @@ class Answer(BaseModel):
     answer: str
 
 class AnswersRequest(BaseModel):
-    session_id: str
-    file_content: str
-    instructions: str
     answers: List[Answer]
+    session_id : str
 
 
 class Subsection(BaseModel):
