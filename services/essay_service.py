@@ -7,7 +7,6 @@ from models.request_models import GenerateEssayRequest, GenerateEssayResponse, E
 from config import OPENAI_API_KEY
 import logging
 from nltk.tokenize import sent_tokenize
-from services.essay_generation_with_instructions import save_essay_to_file
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
