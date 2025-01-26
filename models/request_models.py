@@ -128,3 +128,11 @@ class FinalResponse(BaseModel):
     essay: str
     outline: EssayOutline
     references: Optional[List[str]]
+
+class SaveEssayRequest(BaseModel):
+    email: str
+    title: str
+    word_count: int
+    citation_style: str
+    generated_essay: str
+    entered_essay: Optional[str] = None

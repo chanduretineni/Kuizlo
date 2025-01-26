@@ -8,6 +8,9 @@ from api.fine_tuned_models_api import fine_tune_request
 from api.auth import signup, login
 from services.essay_generation_with_instructions import create_essay_outline, generate_final_essay,process_uploaded_file,generate_questions_from_context
 import json
+from models.request_models import SaveEssayRequest
+from services.essay_storage_service import essay_storage_service
+
 router = APIRouter()
 
 # Route for IEEE article search
@@ -98,3 +101,12 @@ async def generate_questions(
         raise HTTPException(status_code=400, detail="Invalid JSON format in request_data")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    
+
+@router.post("/save-essay")
+async def save_essay(request: SaveEssayRequest):
+    return await essay_storage_service.save_essay(request)
+
+@router.get("/retrieve-essay")
+async def retrieve_essay(email: str):
+    return await essay_storage_service.get_essay(email)
