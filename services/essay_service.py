@@ -7,9 +7,15 @@ from models.request_models import GenerateEssayRequest, GenerateEssayResponse, E
 from config import OPENAI_API_KEY
 import logging
 from nltk.tokenize import sent_tokenize
+from pymongo import MongoClient
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+mongo_client = MongoClient("mongodb+srv://chandu:6264@chanduretineni.zfbcc.mongodb.net/?retryWrites=true&w=majority&appName=ChanduRetineni")
+db = mongo_client["Kuizlo"]
+essays_collection = db["essays"]
+session_questions_collection = db["session_questions"]
 
 def format_citation_instruction(citation_style: str) -> str:
     """Generate specific citation formatting instructions based on the style."""

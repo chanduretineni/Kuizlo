@@ -7,11 +7,18 @@ import pandas as pd
 from fastapi import HTTPException
 from models.request_models import QueryResponse, ReferenceObject
 from config import OUTPUT_DIR
+from pymongo import MongoClient
 
 API_TIMEOUT = 20
 MAX_CONCURRENT = 5  # Reduced for rate limiting
 SPRINGER_API_KEY = "afb38807408f472ed1e4c9666a9a644a"
 SPRINGER_API_URL = "http://api.springernature.com/metadata/json"
+
+mongo_client = MongoClient("mongodb+srv://chandu:6264@chanduretineni.zfbcc.mongodb.net/?retryWrites=true&w=majority&appName=ChanduRetineni")
+db = mongo_client["Kuizlo"]
+essays_collection = db["essays"]
+session_questions_collection = db["session_questions"]
+
 
 async def fetch_with_retry(client, url, headers=None, retries=2):
     """Handle rate limits with exponential backoff"""
@@ -273,6 +280,14 @@ async def fetch_all_articles(query: str):
             except Exception as e:
                 print(f"Validation error: {e}")
                 continue
+
+        #Insert the query, title, and references into the essays collection
+        essay_document = {
+            "title": query,
+            "references": validated[:15],  # Save up to 15 validated references
+            "created_at": datetime.utcnow()
+        }
+        inserted_document = essays_collection.insert_one(essay_document)
         
         return QueryResponse(references=validated[:15])
         

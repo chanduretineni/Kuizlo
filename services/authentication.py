@@ -9,6 +9,7 @@ from google.oauth2.id_token import verify_oauth2_token
 from db.mongo_db import db
 from config import GOOGLE_CLIENT_ID
 from fastapi.responses import JSONResponse
+from uuid import uuid4  
 
 # Configuration
 SECRET_KEY = "1M16ZIr5lUwiNVdNgJOhJNFws5B1xIXn"
@@ -43,25 +44,33 @@ def verify_apple_token(token: str):
         raise HTTPException(status_code=400, detail="Invalid Apple token")
     return response.json()
 
+
 async def signup_process(signup_request: SignupRequest):
     if signup_request.email:
         existing_user = USER_DATA_COLLECTION.find_one({"email": signup_request.email})
         if existing_user:
-             return {
+            return {
                 "message": "User already registered",
                 "user": {
                     "email": existing_user["email"],
                     "name": existing_user["name"],
-                    # "roles": existing_user["roles"]
+                    "user_id": existing_user["user_id"],  # Return existing user_id
                 },
                 "status": "existing_user"
             }
+
+    # Generate a unique user_id
+    while True:
+        user_id = str(uuid4())[:8]  
+        if not USER_DATA_COLLECTION.find_one({"user_id": user_id}):  
+            break
 
     if signup_request.provider == "email":
         if not signup_request.password:
             raise HTTPException(status_code=400, detail="Password is required for email signup")
         password_hash = hash_password(signup_request.password)
         user_data = {
+            "user_id": user_id,
             "name": signup_request.name,
             "email": signup_request.email,
             "password_hash": password_hash,
@@ -72,9 +81,10 @@ async def signup_process(signup_request: SignupRequest):
         }
     elif signup_request.provider == "google" or signup_request.provider == "apple":
         user_data = {
+            "user_id": user_id,
             "name": signup_request.name,
             "email": signup_request.email,
-            "auth_provider": "google",
+            "auth_provider": signup_request.provider,
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow(),
             "roles": ["user"]
@@ -82,7 +92,9 @@ async def signup_process(signup_request: SignupRequest):
     else:
         raise HTTPException(status_code=400, detail="Invalid provider")
 
+    # Insert the new user into the database
     USER_DATA_COLLECTION.insert_one(user_data)
+
     # Generate JWT token for email provider
     if signup_request.provider == "email":
         access_token = create_access_token(data={"sub": signup_request.email})
@@ -91,17 +103,21 @@ async def signup_process(signup_request: SignupRequest):
             "user": {
                 "email": user_data["email"],
                 "name": user_data["name"],
-                "roles": user_data["roles"]
+                "roles": user_data["roles"],
+                "user_id": user_data["user_id"],  # Include user_id in the response
             }
         })
         response.set_cookie(
             key="access_token",
             value=access_token,
-            httponly=True,  
-            secure=False,  
+            httponly=True,
+            secure=False,
             samesite="Strict"
         )
-    return {"message": "User registered successfully"}
+        return response
+
+    return {"message": "User registered successfully", "user_id": user_id}
+
 
 async def login_process(request: Request, form_data: LoginRequest):
     
