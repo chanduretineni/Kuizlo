@@ -6,12 +6,11 @@ import os
 import pandas as pd
 from fastapi import HTTPException
 from models.request_models import QueryResponse, ReferenceObject
-from config import OUTPUT_DIR
+from config import OUTPUT_DIR,SPRINGER_API_KEY
 from pymongo import MongoClient
 
 API_TIMEOUT = 20
 MAX_CONCURRENT = 5  # Reduced for rate limiting
-SPRINGER_API_KEY = "afb38807408f472ed1e4c9666a9a644a"
 SPRINGER_API_URL = "http://api.springernature.com/metadata/json"
 
 mongo_client = MongoClient("mongodb+srv://chandu:6264@chanduretineni.zfbcc.mongodb.net/?retryWrites=true&w=majority&appName=ChanduRetineni")
@@ -171,7 +170,7 @@ async def fetch_springer_via_crossref(query: str, limit=15):
 async def fetch_springer_dois(query: str, limit=15):
     """Fetch Springer DOIs with English filter"""
     params = {
-        "q": f"{query} language:eng",
+        "q": f"{query}",
         "api_key": SPRINGER_API_KEY,
         "p": limit,
         "s": "1",
@@ -247,15 +246,15 @@ async def fetch_all_articles(query: str):
     """Main function with robust result gathering"""
     try:
         # Fetch from all sources in parallel
-        crossref, openalex, semanticscholar, springer = await asyncio.gather(
-            fetch_crossref_articles(query),
+        openalex, semanticscholar = await asyncio.gather(
+            #fetch_crossref_articles(query),
             fetch_openalex_articles(query),
             fetch_semanticscholar_articles(query),
-            fetch_springer_via_crossref(query)
+            #fetch_springer_via_crossref(query)
         )
         
         # Combine and process results
-        all_articles = [a for a in crossref + openalex + semanticscholar + springer if a]
+        all_articles = [a for a in   openalex + semanticscholar if a]
         final_articles = process_results(all_articles)
         
         # Save results
@@ -281,13 +280,13 @@ async def fetch_all_articles(query: str):
                 print(f"Validation error: {e}")
                 continue
 
-        #Insert the query, title, and references into the essays collection
-        essay_document = {
-            "title": query,
-            "references": validated[:15],  # Save up to 15 validated references
-            "created_at": datetime.utcnow()
-        }
-        inserted_document = essays_collection.insert_one(essay_document)
+        # #Insert the query, title, and references into the essays collection
+        # essay_document = {
+        #     "title": query,
+        #     "references": validated[:15],  
+        #     "created_at": datetime.utcnow()
+        # }
+        # inserted_document = essays_collection.insert_one(essay_document)
         
         return QueryResponse(references=validated[:15])
         
