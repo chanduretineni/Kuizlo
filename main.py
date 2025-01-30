@@ -33,6 +33,7 @@ sessions = {}
 
 class QuestionAnswer(BaseModel):
     question_id: str
+    question: str
     answer: str
 
 class ProcessFileResponse(BaseModel):
@@ -54,7 +55,6 @@ class CompleteTaskRequest(BaseModel):
 
 class CompleteTaskResponse(BaseModel):
     content: str
-    format: str
 
 
 
@@ -259,19 +259,19 @@ async def complete_task(request: CompleteTaskRequest):
             content=session_data["content"],
             tasks=session_data["tasks"],
             outline=request.modified_outline,
+            answers=session_data["answers"],
             client=client
         )
         
         # Save final result
         essays_collection.insert_one({
             "session_id": request.session_id,
-            "content": content[6:],
+            "content": content,
             "generated_at": datetime.utcnow()
         })
-        
+
         return CompleteTaskResponse(
-            content=content,
-            format="html"
+            content=content
         )
         
     except HTTPException as he:
