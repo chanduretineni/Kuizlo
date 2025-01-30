@@ -20,3 +20,5 @@ PyPDF2
 bs4
 matplotlib
 IPython
+python-docx
+jinja2

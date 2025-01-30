@@ -1,164 +1,281 @@
 import httpx
-import json
-from config import IEEE_API_URL, IEEE_API_KEY
-from config import SPRINGER_API_URL, SPRINGER_API_KEY, OUTPUT_DIR
-from fastapi import HTTPException
-import pandas as pd
+import asyncio
+from urllib.parse import quote
 from datetime import datetime
 import os
-from models.request_models import ReferenceObject,QueryResponse
-async def fetch_ieee_articles(query: str):
-    params = {
-        "apikey": IEEE_API_KEY,
-        "querytext": query
-    }
-    async with httpx.AsyncClient() as client:
-        response = await client.get(IEEE_API_URL, params=params)
-        return response.json()
+import pandas as pd
+from fastapi import HTTPException
+from models.request_models import QueryResponse, ReferenceObject
+from config import OUTPUT_DIR
 
+API_TIMEOUT = 20
+MAX_CONCURRENT = 5  # Reduced for rate limiting
+SPRINGER_API_KEY = "afb38807408f472ed1e4c9666a9a644a"
+SPRINGER_API_URL = "http://api.springernature.com/metadata/json"
 
-
-# async def fetch_springer_articles(query: str):
-#     params = {
-#         "api_key": SPRINGER_API_KEY,
-#         "q": query
-#     }
-
-#     async with httpx.AsyncClient() as client:
-#         response = await client.get(SPRINGER_API_URL, params=params)
-#         response.raise_for_status()
-#         data = response.json()
-
-#     records = []
-#     for record in data.get("records", []):
-#         creators = record.get("creators", [])
-#         authors = "; ".join(
-#             [creator.get("creator", "N/A") if isinstance(creator, dict) else str(creator) for creator in creators]
-#         )
-
-#         urls = "; ".join([url.get("value", "N/A") for url in record.get("url", [])])
-#         if record.get("doi"):
-#             crossref_data = await get_crossref_data(record.get("doi"))
-#         records.append({
-#             "Title": record.get("title", "N/A"),
-#             "Authors": authors,
-#             "Publication Name": record.get("publicationName", "N/A"),
-#             "Publication Date": record.get("publicationDate", "N/A"),
-#             "DOI": record.get("doi", "N/A"),
-#             "Abstract": record.get("abstract", "N/A"),
-#             "Subjects": "; ".join(record.get("subjects", [])),
-#             "URLs": urls,
-#             "Open Access": record.get("openaccess", "false"),
-#             "Volume": record.get("volume", "N/A"),
-#             "Number": record.get("number", "N/A"),
-#             "Starting Page": record.get("startingPage", "N/A"),
-#             "Ending Page": record.get("endingPage", "N/A"),
-#             "ISSN": record.get("issn", "N/A"),
-#             "Publisher": record.get("publisher", "N/A"),
-#             "Content Type": record.get("contentType", "N/A"),
-#         })
-
-#     if not records:
-#         raise HTTPException(status_code=404, detail="No articles found for the given query.")
-
-#     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-#     output_file = os.path.join(OUTPUT_DIR, f"springer_papers_{timestamp}.xlsx")
-#     df = pd.DataFrame(records)
-#     df.to_excel(output_file, index=False)
-
-#     return {"message": "File created successfully.", "file_path": output_file}
-
-
-async def get_crossref_data(doi: str):
-    """Retrieves data from the Crossref API using a DOI."""
-    url = f"https://api.crossref.org/works/{doi}"
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url, timeout=10)
+async def fetch_with_retry(client, url, headers=None, retries=2):
+    """Handle rate limits with exponential backoff"""
+    for attempt in range(retries):
+        try:
+            response = await client.get(url, headers=headers)
             response.raise_for_status()
-            data = response.json()
-            return data.get("message", {})
-    except httpx.HTTPError as e:
-        print(f"Crossref API error for DOI {doi}: {e}")
-        return {}
-    except json.JSONDecodeError as e:
-        print(f"Error decoding JSON from Crossref API for DOI {doi}: {e}")
-        return {}
-    except Exception as e:
-        print(f"An unexpected error occurred while fetching data from Crossref API: {e}")
-        return {}
+            return response
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 429:
+                wait = 2 ** attempt
+                print(f"Rate limited, retrying in {wait} seconds...")
+                await asyncio.sleep(wait)
+                continue
+            raise
+    return None
 
-async def fetch_springer_articles(query: str):
-    """Fetches articles from the Springer API and enriches them with Crossref data."""
-    params = {
-        "api_key": SPRINGER_API_KEY,
-        "q": query
-    }
+async def fetch_crossref_articles(query: str, limit=15):
+    """Fetch English articles from Crossref with language filter"""
+    base_url = f"https://api.crossref.org/works?query={quote(query)}&filter=has-abstract:true,language:en&sort=published&order=desc&mailto=retinanisaichandu@email.com"
+    results = []
+    page = 0
+    batch_size = min(limit * 2, 100)  # Get extra to account for filtering
+    
+    while len(results) < limit * 2 and page < 3:  # Max 3 pages
+        url = f"{base_url}&rows={batch_size}&offset={page * batch_size}"
+        try:
+            async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
+                response = await fetch_with_retry(client, url)
+                if response:
+                    items = response.json().get("message", {}).get("items", [])
+                    for item in items:
+                        try:
+                            authors = "; ".join(
+                                f"{a.get('given', '')} {a.get('family', '')}".strip()
+                                for a in item.get("author", [])
+                            )
+                            year = item.get("published", {}).get("date-parts", [[None]])[0][0]
+                            entry = {
+                                "doi": item.get("DOI"),
+                                "Title": item.get("title", [""])[0],
+                                "Authors": authors or "N/A",
+                                "Year": str(year) if year else "N/A",
+                                "Publisher": item.get("publisher", "N/A"),
+                                "Abstract": item.get("abstract", "N/A"),
+                                "Source": "Crossref",
+                                "Language": item.get("language", "en")
+                            }
+                            if all(entry.values()) and entry["Language"] == "en":
+                                results.append(entry)
+                        except Exception as e:
+                            continue
+                    page += 1
+        except Exception as e:
+            print(f"Crossref error: {str(e)[:200]}")
+            break
+    
+    return sorted(results, key=lambda x: -int(x["Year"]) if x["Year"].isdigit() else 0)[:limit*2]
 
+async def fetch_openalex_articles(query: str, limit=15):
+    """Fetch English articles from OpenAlex"""
+    url = f"https://api.openalex.org/works?search={quote(query)}&filter=language:eng&per_page={limit * 2}&sort=publication_date:desc"
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
+            response = await fetch_with_retry(client, url, headers={"User-Agent": "ResearchApp/1.0 (mailto:retinanisaichandu@email.com)"})
+            if response:
+                items = response.json().get("results", [])
+                return [process_openalex_item(item) for item in items]
+    except Exception as e:
+        print(f"OpenAlex error: {str(e)[:200]}")
+    return []
+
+def process_openalex_item(item):
+    """Process OpenAlex items with validation"""
+    try:
+        abstract = "N/A"
+        if item.get("abstract_inverted_index"):
+            word_positions = []
+            for word, positions in item["abstract_inverted_index"].items():
+                word_positions.extend((pos, word) for pos in positions)
+            abstract = ' '.join(word for _, word in sorted(word_positions))
+        elif item.get("abstract"):
+            abstract = item["abstract"]
+        
+        return {
+            "doi": (item.get("doi") or "").replace("https://doi.org/", ""),
+            "Title": item.get("title", "N/A"),
+            "Authors": "; ".join(
+                a["author"].get("display_name", "Unknown") 
+                for a in item.get("authorships", [])
+            ),
+            "Year": str(item.get("publication_year", "N/A")),
+            "Publisher": item.get("host_venue", {}).get("publisher", "N/A"),
+            "Abstract": abstract,
+            "Source": "OpenAlex",
+            "Language": "en"
+        }
+    except Exception as e:
+        print(f"OpenAlex processing error: {e}")
+        return None
+
+async def fetch_semanticscholar_articles(query: str, limit=15):
+    """Fetch articles from Semantic Scholar with English filter"""
+    url = f"https://api.semanticscholar.org/graph/v1/paper/search?query={quote(query)}&limit={limit * 2}&fields=title,authors,year,venue,abstract,externalIds"
+    try:
+        async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
+            response = await fetch_with_retry(client, url)
+            if response:
+                items = response.json().get("data", [])
+                return [process_semanticscholar_item(item) for item in items]
+    except Exception as e:
+        print(f"Semantic Scholar error: {str(e)[:200]}")
+    return []
+
+def process_semanticscholar_item(item):
+    """Process Semantic Scholar items with validation"""
+    try:
+        return {
+            "doi": item.get("externalIds", {}).get("DOI", "N/A"),
+            "Title": item.get("title", "N/A"),
+            "Authors": "; ".join(a.get("name", "Unknown") for a in item.get("authors", [])),
+            "Year": str(item.get("year", "N/A")),
+            "Publisher": item.get("venue", "N/A"),
+            "Abstract": item.get("abstract", "N/A"),
+            "Source": "Semantic Scholar",
+            "Language": "en"  # Semantic Scholar doesn't provide language, assume English
+        }
+    except Exception as e:
+        print(f"Semantic Scholar processing error: {e}")
+        return None
+
+async def fetch_springer_via_crossref(query: str, limit=15):
+    """Get Springer articles through Crossref with rate limiting"""
+    springer_dois = await fetch_springer_dois(query, limit * 2)
+    results = []
+    
+    # Process DOIs with rate limiting
+    semaphore = asyncio.Semaphore(MAX_CONCURRENT)
+    
+    async def process_doi(doi):
+        async with semaphore:
+            await asyncio.sleep(1)  # Add delay between requests
+            return await fetch_crossref_details(doi)
+    
+    tasks = [process_doi(doi) for doi in springer_dois]
+    batch_results = await asyncio.gather(*tasks)
+    
+    return [r for r in batch_results if r and r["Language"] == "en"]
+
+async def fetch_springer_dois(query: str, limit=15):
+    """Fetch Springer DOIs with English filter"""
+    params = {
+        "q": f"{query} language:eng",
+        "api_key": SPRINGER_API_KEY,
+        "p": limit,
+        "s": "1",
+        "sort": "relevance"
+    }
+    try:
+        async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
             response = await client.get(SPRINGER_API_URL, params=params)
             response.raise_for_status()
-            data = response.json()
-    except httpx.HTTPError as e:
-        raise HTTPException(status_code=response.status_code, detail=f"Springer API request failed: {e}")
-    except json.JSONDecodeError as e:
-        raise HTTPException(status_code=500, detail=f"Invalid JSON received from Springer API: {e}")
+            items = response.json().get("records", [])
+            return [item["doi"] for item in items if item.get("doi")]
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An unexpected error occurred while fetching data from Springer API: {e}")
+        print(f"Springer DOI error: {str(e)[:200]}")
+        return []
 
-    records = []
-    for record in data.get("records", []):
-        creators = record.get("creators", [])
-        springer_authors = "; ".join(
-            [creator.get("creator", "N/A") if isinstance(creator, dict) else str(creator) for creator in creators]
+async def fetch_crossref_details(doi: str):
+    """Fetch details from Crossref with validation"""
+    try:
+        url = f"https://api.crossref.org/works/{quote(doi)}?mailto=retinanisaichandu@email.com"
+        async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
+            response = await fetch_with_retry(client, url)
+            if response and response.status_code == 200:
+                item = response.json()["message"]
+                year = next(iter(
+                    item.get("published", {}).get("date-parts", [[None]])[0] or
+                    item.get("created", {}).get("date-parts", [[None]])[0] or
+                    item.get("issued", {}).get("date-parts", [[None]])[0]
+                ), None)
+                
+                return {
+                    "doi": doi,
+                    "Title": item.get("title", ["N/A"])[0],
+                    "Authors": "; ".join(
+                        f"{a.get('given', '')} {a.get('family', '')}".strip()
+                        for a in item.get("author", [])
+                    ) or "N/A",
+                    "Year": str(year) if year else "N/A",
+                    "Publisher": item.get("publisher", "N/A"),
+                    "Abstract": item.get("abstract", "N/A"),
+                    "Source": "Springer (via Crossref)",
+                    "Language": item.get("language", "en")
+                }
+    except Exception as e:
+        print(f"Crossref detail error for {doi}: {str(e)[:200]}")
+    return None
+
+def process_results(articles, min_results=10):
+    """Process and validate results with fallback"""
+    seen = set()
+    filtered = []
+    
+    for article in articles:
+        if not article or not all(article.get(f) not in ["N/A", None, ""] for f in ["Title", "Authors", "Year", "Publisher", "Abstract"]):
+            continue
+        
+        if article.get("Language", "en") != "en":
+            continue
+        
+        key = article["doi"] or f"{article['Title']}-{article['Year']}"
+        if key not in seen:
+            seen.add(key)
+            filtered.append(article)
+    
+    # Sort by year descending, then title
+    sorted_results = sorted(
+        filtered,
+        key=lambda x: (-int(x["Year"]) if x["Year"].isdigit() else 0, x["Title"])
+    )
+    
+    return sorted_results[:15] if len(sorted_results) >= min_results else sorted_results
+
+async def fetch_all_articles(query: str):
+    """Main function with robust result gathering"""
+    try:
+        # Fetch from all sources in parallel
+        crossref, openalex, semanticscholar, springer = await asyncio.gather(
+            fetch_crossref_articles(query),
+            fetch_openalex_articles(query),
+            fetch_semanticscholar_articles(query),
+            fetch_springer_via_crossref(query)
         )
-        springer_abstract = record.get("abstract", "N/A")
-        springer_publication_name = record.get("publicationName", "N/A")
-        springer_publication_date = record.get("publicationDate", "N/A")
-        springer_urls = "; ".join([url.get("value", "N/A") for url in record.get("url", [])])
-        springer_title = record.get("title","N/A")
-
-        doi = record.get("doi", None)
-        crossref_data = {}
-        if doi:
-            crossref_data = await get_crossref_data(doi)
-
-        title = crossref_data.get("title", [springer_title])[0]
-        authors = "; ".join([
-            f"{author.get('given', '')} {author.get('family', '')}"
-            for author in crossref_data.get("author", [])
-        ]) if crossref_data.get("author") else springer_authors
-        publication_date_parts = crossref_data.get("published-online", {}) or crossref_data.get("published-print",{}) or crossref_data.get("created",{})
-        publication_date = "-".join(map(str, publication_date_parts.get("date-parts", [["N/A"]])[0])) if publication_date_parts.get("date-parts") else springer_publication_date
-        publisher = crossref_data.get("publisher", "N/A")
-        abstract = crossref_data.get("abstract", springer_abstract)
-        url = crossref_data.get("URL", springer_urls)
-        container_title = crossref_data.get("container-title", [springer_publication_name])[0]
-
-        records.append({
-            "Title": title,
-            "Authors": authors,
-            "Publication Name": container_title,
-            "Publication Date": publication_date,
-            "DOI": doi,
-            "Abstract": abstract,
-            "Publisher": publisher,
-            "URL": url,
-        })
-
-    if not records:
-        raise HTTPException(status_code=404, detail="No articles found for the given query.")
-
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    results_dir = os.path.join(OUTPUT_DIR,"results")
-    if not os.path.exists(results_dir):
-        os.makedirs(results_dir)
-    output_file = os.path.join(OUTPUT_DIR, f"springer_papers_{query}_{timestamp}.xlsx") # Added query to filename
-    df = pd.DataFrame(records)
-    df.to_excel(output_file, index=False)
-
-    # Convert the records into the response model
-    references = [ReferenceObject(AuthorName=rec["Authors"], TitleName=rec["Title"], Year=rec["Publication Date"].split("-")[0], Publisher=rec["Publisher"], Abstract= rec["Abstract"]) for rec in records]
-
-    return QueryResponse(references=references)
+        
+        # Combine and process results
+        all_articles = [a for a in crossref + openalex + semanticscholar + springer if a]
+        final_articles = process_results(all_articles)
+        
+        # Save results
+        os.makedirs(os.path.join(OUTPUT_DIR, "results"), exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        pd.DataFrame(final_articles).to_excel(
+            os.path.join(OUTPUT_DIR, "results", f"articles_{query}_{timestamp}.xlsx"),
+            index=False
+        )
+        
+        # Validate and return
+        validated = []
+        for art in final_articles:
+            try:
+                validated.append(ReferenceObject(
+                    AuthorName=art["Authors"],
+                    TitleName=art["Title"],
+                    Year=art["Year"],
+                    Publisher=art["Publisher"],
+                    Abstract=art["Abstract"]
+                ))
+            except Exception as e:
+                print(f"Validation error: {e}")
+                continue
+        
+        return QueryResponse(references=validated[:15])
+        
+    except Exception as e:
+        print(f"Critical error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")

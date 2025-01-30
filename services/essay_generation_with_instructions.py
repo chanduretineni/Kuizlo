@@ -17,7 +17,7 @@ import json
 import math
 import re
 from bs4 import BeautifulSoup
-from services.reference_files import fetch_springer_articles
+from services.reference_files import fetch_all_articles
 from services.essay_service import generate_references
 
 # Configure logging

@@ -1,5 +1,5 @@
 from pydantic import BaseModel,Field
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict,Any
 from enum import Enum
 
 
@@ -136,3 +136,18 @@ class SaveEssayRequest(BaseModel):
     citation_style: str
     generated_essay: str
     entered_essay: Optional[str] = None
+
+
+# Pydantic models for request/response
+class TaskAnalysisResponse(BaseModel):
+    task_type: str
+    questions: List[Dict[str, str]]
+    initial_outline: Optional[Dict[str, Any]]
+
+class TaskCompletionRequest(BaseModel):
+    session_id: str
+    answers: list[Dict[str, str]]
+
+class TaskCompletionResponse(BaseModel):
+    content: str
+    format: str
