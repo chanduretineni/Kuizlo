@@ -124,7 +124,7 @@ async def identify_content_tasks(content: str, client: OpenAI) -> List[dict]:
     """
     
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": "You are a highly skilled AI designed to extract meaningful tasks from diverse data sources. Your role is to ensure flexibility and precision in identifying tasks for effective outputs."},
             {"role": "user", "content": task_prompt}
@@ -183,7 +183,7 @@ async def generate_initial_output(content: str, client: OpenAI) -> tuple:
     """
     
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4o-mini",
         messages=[
             {
                 "role": "system", 
@@ -253,7 +253,7 @@ async def generate_clarifying_questions(content: str, tasks: List[dict], client:
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4o-mini",
             messages=[
                 {
                     "role": "system",
@@ -323,7 +323,7 @@ async def generate_task_outline(content: str, tasks: List[dict], answers: List[d
     
     try:
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4o-mini",
             messages=[
                 {
                     "role": "system",
@@ -389,7 +389,7 @@ async def generate_final_content(content: str, tasks: List[dict], outline: Dict,
     try:
         # Send the prompt to the OpenAI API for generating the final content
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4o-mini",
             messages=[
                 {
                     "role": "system",

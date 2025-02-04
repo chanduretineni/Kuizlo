@@ -147,7 +147,7 @@ async def generate_clarifying_questions(content: str, client: OpenAI) -> List[Di
     try:
         # Content analysis phase
         analysis_response = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "Expert content analyst"},
                 {"role": "user", "content": analysis_prompt}
@@ -159,7 +159,7 @@ async def generate_clarifying_questions(content: str, client: OpenAI) -> List[Di
         
         # Question generation phase
         gen_response = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "Question generation specialist"},
                 {"role": "user", "content": generation_prompt.format(analysis=json.dumps(analysis))}
@@ -208,7 +208,7 @@ async def generate_task_outline(content: str, answers: List[Dict], client: OpenA
     """
     
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": "Professional document architect"},
             {"role": "user", "content": prompt}
@@ -242,7 +242,7 @@ async def generate_final_content(content: str, outline: Dict, client: OpenAI) ->
     """
     
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": "Expert HTML content generator"},
             {"role": "user", "content": prompt}
@@ -280,7 +280,7 @@ async def generate_initial_output(content: str, client: OpenAI) -> tuple:
     """
     
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": "Expert content analyzer and HTML formatter"},
             {"role": "user", "content": prompt}

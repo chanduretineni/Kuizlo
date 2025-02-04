@@ -392,7 +392,7 @@ async def prompt_fine_tuned_model(prompt_text, topic):
     """Prompt the fine-tuned model to generate an essay."""
     try:
         response = openai_client.chat.completions.create(
-            model="ft:gpt-4o-2024-08-06:kuizlo::Am1frrxs",
+            model="ft:gpt-4o-mini-2024-08-06:kuizlo::Am1frrxs",
             messages=[
                 {"role": "system", "content": """You are an IB Economics Internal Assessment (IA) essay generator..."""},  # Condensed for brevity
                 {"role": "user", "content": str(prompt_text)}
