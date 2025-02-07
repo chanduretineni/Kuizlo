@@ -3,7 +3,6 @@ import asyncio
 from urllib.parse import quote
 from datetime import datetime
 import os
-import pandas as pd
 from fastapi import HTTPException
 from models.request_models import QueryResponse, ReferenceObject
 from config import OUTPUT_DIR,SPRINGER_API_KEY
@@ -260,10 +259,10 @@ async def fetch_all_articles(query: str):
         # Save results
         os.makedirs(os.path.join(OUTPUT_DIR, "results"), exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        pd.DataFrame(final_articles).to_excel(
-            os.path.join(OUTPUT_DIR, "results", f"articles_{query}_{timestamp}.xlsx"),
-            index=False
-        )
+        # pd.DataFrame(final_articles).to_excel(
+        #     os.path.join(OUTPUT_DIR, "results", f"articles_{query}_{timestamp}.xlsx"),
+        #     index=False
+        # )
         
         # Validate and return
         validated = []
