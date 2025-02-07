@@ -151,3 +151,8 @@ class TaskCompletionRequest(BaseModel):
 class TaskCompletionResponse(BaseModel):
     content: str
     format: str
+
+
+class AnswerResponse(BaseModel):
+    answer: str
+    pdf_path: str
