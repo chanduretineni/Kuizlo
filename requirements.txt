@@ -22,3 +22,6 @@ matplotlib
 IPython
 python-docx
 jinja2
+fitz
+PyMuPDF
+reportlab
