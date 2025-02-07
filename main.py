@@ -5,7 +5,7 @@ from typing import Optional, Any
 from api.reference_files import springer_article_search
 from api.generate_essay_api import generate_essay, humanize_essay, generate_essay_with_instructions
 from models.request_models import QueryRequest, GenerateEssayRequest, GenerateEssayResponse, HumanizeEssay, HumanizeEssayResponse, QueryResponse, FineTuneModelResponse, FineTuneModelRequest, SignupRequest,TokenResponse, LoginRequest,QuestionsResponse,AnswersRequest,FinalResponse,AnswerResponse
-from api.fine_tuned_models_api import fine_tune_request
+#from api.fine_tuned_models_api import fine_tune_request
 from api.auth import signup, login
 from services.essay_generation_with_instructions import create_essay_outline, generate_final_essay,process_uploaded_file,generate_questions_from_context
 import json
@@ -82,10 +82,10 @@ async def generate_essay_api(request: GenerateEssayRequest):
 def humanize_essay_api(request: HumanizeEssay):
     return humanize_essay(request)
 
-# Route for Fine Tuned Models
-@router.post("/api/fine-tuned-model", response_model=FineTuneModelResponse)
-async def generate_fine_tune_model(request: FineTuneModelRequest):
-    return await fine_tune_request(request)
+# # Route for Fine Tuned Models
+# @router.post("/api/fine-tuned-model", response_model=FineTuneModelResponse)
+# async def generate_fine_tune_model(request: FineTuneModelRequest):
+#     return await fine_tune_request(request)
 
 # Route for Essay Generation
 @router.post("/api/generate-essay-with-instructions", response_model=GenerateEssayResponse)

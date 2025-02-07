@@ -6,7 +6,6 @@ openai
 pandas
 requests
 python-dotenv
-openpyxl
 nltk
 pymongo
 python-jose
@@ -18,10 +17,8 @@ bcrypt
 pytesseract
 PyPDF2
 bs4
-matplotlib
-IPython
+#matplotlib
 python-docx
-jinja2
 fitz
 PyMuPDF
 reportlab
