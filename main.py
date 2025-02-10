@@ -316,7 +316,8 @@ async def question_answer_model(
                 # For image files, send the image (with any accompanying text).
                 answer = answer_question(content=combined_content, image=file_bytes)
                 pdf_path = format_response_to_pdf(answer)
-                return AnswerResponse(answer=answer,pdf_path=pdf_path)
+                cleaned_answer = clean_latex_formatting(answer)
+                return AnswerResponse(answer=cleaned_answer,pdf_path=pdf_path)
 
             elif file_extension in ['pdf', 'docx']:
                 # For PDF/DOCX, extract text and any embedded images.
