@@ -263,7 +263,8 @@ def format_response_to_pdf(response: str, file_prefix: str = None) -> str:
 
 def clean_latex_formatting(text: str) -> str:
     """
-    Removes LaTeX formatting from text while preserving the mathematical content.
+    Removes LaTeX formatting from text while preserving the mathematical content
+    and maintaining paragraph structure.
     
     Args:
         text (str): Text containing LaTeX formatting
@@ -271,36 +272,49 @@ def clean_latex_formatting(text: str) -> str:
     Returns:
         str: Cleaned text with LaTeX formatting removed but math content preserved
     """
-    # Remove display math delimiters \[ \]
-    cleaned_text = re.sub(r'\\\[(.*?)\\\]', r'\1', text, flags=re.DOTALL)
+    # Split text into paragraphs
+    paragraphs = text.split('\n')
+    cleaned_paragraphs = []
     
-    # Remove inline math delimiters \( \)
-    cleaned_text = re.sub(r'\\\((.*?)\\\)', r'\1', cleaned_text)
+    for paragraph in paragraphs:
+        if not paragraph.strip():
+            cleaned_paragraphs.append('')
+            continue
+            
+        # Remove display math delimiters \[ \]
+        cleaned_para = re.sub(r'\\\[(.*?)\\\]', r'\1', paragraph, flags=re.DOTALL)
+        
+        # Remove inline math delimiters \( \)
+        cleaned_para = re.sub(r'\\\((.*?)\\\)', r'\1', cleaned_para)
+        
+        # Remove common LaTeX commands while preserving the content
+        latex_commands = [
+            (r'\\frac\{(.*?)\}\{(.*?)\}', r'\1/\2'),  # Convert fractions to division
+            (r'\\sqrt\{(.*?)\}', r'√(\1)'),           # Convert square root
+            (r'\\cdot', r'×'),                        # Convert multiplication dot
+            (r'\\times', r'×'),                       # Convert times symbol
+            (r'\\div', r'÷'),                         # Convert division symbol
+            (r'\\pm', r'±'),                          # Convert plus-minus symbol
+            (r'\\leq', r'≤'),                         # Convert less than or equal
+            (r'\\geq', r'≥'),                         # Convert greater than or equal
+            (r'\\neq', r'≠'),                         # Convert not equal
+            (r'\\alpha', r'α'),                       # Convert alpha
+            (r'\\beta', r'β'),                        # Convert beta
+            (r'\\theta', r'θ'),                       # Convert theta
+            (r'\\pi', r'π'),                          # Convert pi
+        ]
+        
+        for pattern, replacement in latex_commands:
+            cleaned_para = re.sub(pattern, replacement, cleaned_para)
+        
+        # Remove any remaining backslashes
+        cleaned_para = cleaned_para.replace('\\', '')
+        
+        # Clean up horizontal whitespace within the paragraph
+        cleaned_para = re.sub(r' +', ' ', cleaned_para).strip()
+        
+        if cleaned_para:
+            cleaned_paragraphs.append(cleaned_para)
     
-    # Remove common LaTeX commands while preserving the content
-    latex_commands = [
-        (r'\\frac\{(.*?)\}\{(.*?)\}', r'\1/\2'),  # Convert fractions to division
-        (r'\\sqrt\{(.*?)\}', r'√(\1)'),           # Convert square root
-        (r'\\cdot', r'×'),                        # Convert multiplication dot
-        (r'\\times', r'×'),                       # Convert times symbol
-        (r'\\div', r'÷'),                         # Convert division symbol
-        (r'\\pm', r'±'),                          # Convert plus-minus symbol
-        (r'\\leq', r'≤'),                         # Convert less than or equal
-        (r'\\geq', r'≥'),                         # Convert greater than or equal
-        (r'\\neq', r'≠'),                         # Convert not equal
-        (r'\\alpha', r'α'),                       # Convert alpha
-        (r'\\beta', r'β'),                        # Convert beta
-        (r'\\theta', r'θ'),                       # Convert theta
-        (r'\\pi', r'π'),                          # Convert pi
-    ]
-    
-    for pattern, replacement in latex_commands:
-        cleaned_text = re.sub(pattern, replacement, cleaned_text)
-    
-    # Remove any remaining backslashes
-    cleaned_text = cleaned_text.replace('\\', '')
-    
-    # Clean up extra whitespace
-    cleaned_text = re.sub(r'\s+', ' ', cleaned_text).strip()
-    
-    return cleaned_text
+    # Join paragraphs with newlines
+    return '\n\n'.join(cleaned_paragraphs)
