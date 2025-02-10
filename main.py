@@ -27,7 +27,7 @@ import fitz
 import docx
 from config import OPENAI_API_KEY
 from services.analyze_task import generate_final_content,generate_task_outline,generate_clarifying_questions,extract_text_from_file,generate_initial_output
-from services.question_and_answer_process import answer_question,format_response_to_pdf,extract_text_and_images
+from services.question_and_answer_process import answer_question,format_response_to_pdf,extract_text_and_images,clean_latex_formatting
 
 # MongoDB Connection
 mongo_client = MongoClient("mongodb+srv://chandu:6264@chanduretineni.zfbcc.mongodb.net/?retryWrites=true&w=majority&appName=ChanduRetineni")
@@ -335,9 +335,9 @@ async def question_answer_model(
             answer = answer_question(content=combined_content, images=images)
         else:
             answer = answer_question(content=combined_content)
-
+        cleaned_answer = clean_latex_formatting(answer)
         pdf_path = format_response_to_pdf(answer)
-        return AnswerResponse(answer=answer,pdf_path=pdf_path)
+        return AnswerResponse(answer=cleaned_answer,pdf_path=pdf_path)
 
     except Exception as e:
         logger.error(f"Processing error: {str(e)}")

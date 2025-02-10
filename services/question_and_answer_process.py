@@ -259,3 +259,48 @@ def format_response_to_pdf(response: str, file_prefix: str = None) -> str:
         
     except Exception as e:
         raise Exception(f"Error generating PDF: {str(e)}")
+    
+
+def clean_latex_formatting(text: str) -> str:
+    """
+    Removes LaTeX formatting from text while preserving the mathematical content.
+    
+    Args:
+        text (str): Text containing LaTeX formatting
+        
+    Returns:
+        str: Cleaned text with LaTeX formatting removed but math content preserved
+    """
+    # Remove display math delimiters \[ \]
+    cleaned_text = re.sub(r'\\\[(.*?)\\\]', r'\1', text, flags=re.DOTALL)
+    
+    # Remove inline math delimiters \( \)
+    cleaned_text = re.sub(r'\\\((.*?)\\\)', r'\1', cleaned_text)
+    
+    # Remove common LaTeX commands while preserving the content
+    latex_commands = [
+        (r'\\frac\{(.*?)\}\{(.*?)\}', r'\1/\2'),  # Convert fractions to division
+        (r'\\sqrt\{(.*?)\}', r'√(\1)'),           # Convert square root
+        (r'\\cdot', r'×'),                        # Convert multiplication dot
+        (r'\\times', r'×'),                       # Convert times symbol
+        (r'\\div', r'÷'),                         # Convert division symbol
+        (r'\\pm', r'±'),                          # Convert plus-minus symbol
+        (r'\\leq', r'≤'),                         # Convert less than or equal
+        (r'\\geq', r'≥'),                         # Convert greater than or equal
+        (r'\\neq', r'≠'),                         # Convert not equal
+        (r'\\alpha', r'α'),                       # Convert alpha
+        (r'\\beta', r'β'),                        # Convert beta
+        (r'\\theta', r'θ'),                       # Convert theta
+        (r'\\pi', r'π'),                          # Convert pi
+    ]
+    
+    for pattern, replacement in latex_commands:
+        cleaned_text = re.sub(pattern, replacement, cleaned_text)
+    
+    # Remove any remaining backslashes
+    cleaned_text = cleaned_text.replace('\\', '')
+    
+    # Clean up extra whitespace
+    cleaned_text = re.sub(r'\s+', ' ', cleaned_text).strip()
+    
+    return cleaned_text
