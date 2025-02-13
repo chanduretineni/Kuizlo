@@ -18,6 +18,5 @@ PyPDF2
 bs4
 #matplotlib
 python-docx
-fitz
 PyMuPDF
 reportlab
