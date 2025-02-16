@@ -16,7 +16,9 @@ bcrypt
 pytesseract
 PyPDF2
 bs4
-#matplotlib
+matplotlib
 python-docx
 PyMuPDF
 reportlab
+seaborn
+pandas

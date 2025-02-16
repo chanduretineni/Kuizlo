@@ -1,6 +1,6 @@
 from pymongo import MongoClient
 from bson.objectid import ObjectId
-from models.request_models import SaveEssayRequest
+from models.request_models import SaveEssayRequest, UserEssays, RetrieveUserEssays
 
 class EssayStorageService:
     def __init__(self, mongo_client, db):
@@ -10,50 +10,58 @@ class EssayStorageService:
 
     async def save_essay(self, essay_data: SaveEssayRequest):
         try:
-            # Convert Pydantic model to dictionary
             essay_dict = essay_data.model_dump()
-            
-            # Insert the essay document
-            result = self.collection.insert_one(essay_dict)
-            
-            return {
-                "success": True, 
-                "message": "Essay saved successfully", 
-                "document_id": str(result.inserted_id)
-            }
-        except Exception as e:
-            return {
-                "success": False, 
-                "message": f"Error saving essay: {str(e)}"
-            }
 
-    async def get_essay(self, email: str):
+            # Check if the document exists
+            existing_document = self.collection.find_one({
+                "document_id": essay_data.document_id, 
+                "user_id": essay_data.user_id
+            })
+
+            if existing_document:
+                # Update the existing document
+                self.collection.update_one(
+                    {"_id": existing_document["_id"]}, 
+                    {"$set": essay_dict}
+                )
+                message = "Essay updated successfully"
+            else:
+                # Insert as a new document
+                result = self.collection.insert_one(essay_dict)
+                message = "Essay saved successfully"
+            
+            return {"success": True, "message": message}
+        except Exception as e:
+            return {"success": False, "message": f"Error saving essay: {str(e)}"}
+
+    async def get_essays_by_user_id(self, user_id: str):
         try:
-            # Find the most recent essay for the given email
-            essay = self.collection.find_one(
-                {"email": email}, 
-                sort=[("_id", -1)]  # Sort by most recent first
-            )
+            essays_cursor = self.collection.find({"user_id": user_id})
+            essays = [
+                UserEssays(Title=essay["title"], document_id=essay["document_id"])
+                for essay in essays_cursor
+            ]
+
+            if not essays:
+                return {"success": False, "message": "No essays found for this user"}
+
+            return RetrieveUserEssays(essays=essays)
+        except Exception as e:
+            return {"success": False, "message": f"Error retrieving essays: {str(e)}"}
+
+    async def get_specific_essay(self, user_id: str, document_id: str):
+        try:
+            essay = self.collection.find_one({"user_id": user_id, "document_id": document_id})
             
             if not essay:
-                return {
-                    "success": False, 
-                    "message": "No essay found for this email"
-                }
+                return {"success": False, "message": "No essay found for the given user_id and document_id"}
             
-            # Convert ObjectId to string
-            essay['_id'] = str(essay['_id'])
-            return {
-                "success": True, 
-                "essay": essay
-            }
+            essay["_id"] = str(essay["_id"])  # Convert ObjectId to string
+            return {"success": True, "essay": essay}
         except Exception as e:
-            return {
-                "success": False, 
-                "message": f"Error retrieving essay: {str(e)}"
-            }
+            return {"success": False, "message": f"Error retrieving specific essay: {str(e)}"}
 
-# Create a singleton instance using the provided MongoDB connection
+# Create singleton instance
 mongo_client = MongoClient("mongodb+srv://chandu:6264@chanduretineni.zfbcc.mongodb.net/?retryWrites=true&w=majority&appName=ChanduRetineni")
 db = mongo_client["Kuizlo"]
 essay_storage_service = EssayStorageService(mongo_client, db)

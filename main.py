@@ -4,11 +4,12 @@ from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
 from typing import Optional, Any
 from api.reference_files import springer_article_search
 from api.generate_essay_api import generate_essay, humanize_essay, generate_essay_with_instructions
-from models.request_models import QueryRequest, GenerateEssayRequest, GenerateEssayResponse, HumanizeEssay, HumanizeEssayResponse, QueryResponse, FineTuneModelResponse, FineTuneModelRequest, SignupRequest,TokenResponse, LoginRequest,QuestionsResponse,AnswersRequest,FinalResponse,AnswerResponse
+from models.request_models import QueryRequest, GenerateEssayRequest, GenerateEssayResponse, HumanizeEssay, HumanizeEssayResponse, QueryResponse, FineTuneModelResponse, FineTuneModelRequest, SignupRequest,TokenResponse, LoginRequest,QuestionsResponse,AnswersRequest,FinalResponse,AnswerResponse,RetrieveUserEssays
 #from api.fine_tuned_models_api import fine_tune_request
 from api.auth import signup, login
 from services.essay_generation_with_instructions import create_essay_outline, generate_final_essay,process_uploaded_file,generate_questions_from_context
 import json
+import httpx
 import base64
 import uuid
 from pymongo import MongoClient
@@ -151,14 +152,18 @@ async def generate_questions(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     
-
 @router.post("/api/save-essay")
 async def save_essay(request: SaveEssayRequest):
     return await essay_storage_service.save_essay(request)
 
-@router.get("/api/retrieve-essay")
-async def retrieve_essay(email: str):
-    return await essay_storage_service.get_essay(email)
+@router.get("/api/retrieve-user-essays", response_model=RetrieveUserEssays)
+async def retrieve_user_essays(user_id: str):
+    return await essay_storage_service.get_essays_by_user_id(user_id)
+
+@router.get("/api/retrieve-specific-essay")
+async def retrieve_specific_essay(user_id: str, document_id: str):
+    return await essay_storage_service.get_specific_essay(user_id, document_id)
+
 
 # main.py updates (partial)
 class ProcessFileResponse(BaseModel):
@@ -317,12 +322,12 @@ async def question_answer_model(
                 answer = answer_question(content=combined_content, image=file_bytes)
                 pdf_path = format_response_to_pdf(answer)
                 cleaned_answer = clean_latex_formatting(answer)
-                return AnswerResponse(answer=cleaned_answer,pdf_path=pdf_path)
+                return AnswerResponse(answer=cleaned_answer, pdf_path=pdf_path)
 
             elif file_extension in ['pdf', 'docx']:
                 # For PDF/DOCX, extract text and any embedded images.
                 extracted_text, extracted_images = await extract_text_and_images(file_extension, file_io)
-                combined_content += "\n" + extracted_text  # merge extracted text with any provided text.
+                combined_content += "\n" + extracted_text  # Merge extracted text with provided text.
                 images.extend(extracted_images)
             else:
                 raise HTTPException(status_code=400, detail="Unsupported file type")
@@ -338,10 +343,86 @@ async def question_answer_model(
             answer = answer_question(content=combined_content)
         cleaned_answer = clean_latex_formatting(answer)
         pdf_path = format_response_to_pdf(answer)
-        return AnswerResponse(answer=cleaned_answer,pdf_path=pdf_path)
-
+        return AnswerResponse(answer=cleaned_answer, pdf_path=pdf_path)
+        
     except Exception as e:
-        logger.error(f"Processing error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class DuckDuckGoSearchRequest(BaseModel):
+    query: str
+    format: Optional[str] = "json"
+    no_html: Optional[bool] = True
+    skip_disambig: Optional[bool] = True
+
+class RelatedTopic(BaseModel):
+    text: Optional[str]
+    first_url: Optional[str]
+
+class DuckDuckGoSearchResponse(BaseModel):
+    abstract: str
+    abstract_source: str
+    abstract_url: str
+    image_url: Optional[str]
+    heading: str
+    related_topics: List[Dict[str, Any]]
+    answer: Optional[str]
+    answer_type: Optional[str]
+    definition: Optional[str]
+    definition_source: Optional[str]
+    definition_url: Optional[str]
+
+@router.post("/api/search/duckduckgo", response_model=DuckDuckGoSearchResponse)
+async def search_duckduckgo(request: DuckDuckGoSearchRequest):
+    """
+    Search DuckDuckGo Instant Answer API
+    
+    This endpoint queries the DuckDuckGo Instant Answer API and returns structured results
+    including abstracts, related topics, and instant answers if available.
+    """
+    try:
+        # Construct the API URL with query parameters
+        base_url = "https://api.duckduckgo.com/"
+        params = {
+            "q": request.query,
+            "format": request.format,
+            "no_html": int(request.no_html),
+            "skip_disambig": int(request.skip_disambig),
+        }
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get(base_url, params=params)
+            
+            if response.status_code != 200:
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail="DuckDuckGo API request failed"
+                )
+
+            data = response.json()
+
+            # Transform the response into our response model
+            return DuckDuckGoSearchResponse(
+                abstract=data.get("Abstract", ""),
+                abstract_source=data.get("AbstractSource", ""),
+                abstract_url=data.get("AbstractURL", ""),
+                image_url=data.get("Image", ""),
+                heading=data.get("Heading", ""),
+                related_topics=data.get("RelatedTopics", []),
+                answer=data.get("Answer", ""),
+                answer_type=data.get("AnswerType", ""),
+                definition=data.get("Definition", ""),
+                definition_source=data.get("DefinitionSource", ""),
+                definition_url=data.get("DefinitionURL", "")
+            )
+
+    except httpx.RequestError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error making request to DuckDuckGo API: {str(e)}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"An unexpected error occurred: {str(e)}"
+        )

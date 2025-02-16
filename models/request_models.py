@@ -14,9 +14,10 @@ class ReferenceObject(BaseModel):
     Publisher : str
     Abstract : str
 
-class QueryResponse(BaseModel):
-    references: List[ReferenceObject]
 
+class QueryResponse(BaseModel):
+    document_id: str
+    references: List[ReferenceObject]
 
 class Reference(BaseModel):
     id: str
@@ -130,12 +131,21 @@ class FinalResponse(BaseModel):
     references: Optional[List[str]]
 
 class SaveEssayRequest(BaseModel):
-    email: str
+    document_id : str
+    user_id: str
     title: str
     word_count: int
     citation_style: str
     generated_essay: str
     entered_essay: Optional[str] = None
+
+class UserEssays(BaseModel):
+    Title : str
+    document_id : str
+
+class RetrieveUserEssays(BaseModel):
+    essays : List[UserEssays]
+
 
 
 # Pydantic models for request/response
