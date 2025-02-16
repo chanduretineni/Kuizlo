@@ -73,6 +73,36 @@ class CompleteTaskResponse(BaseModel):
 async def search_springer(request: QueryRequest):
     return await springer_article_search(request)
 
+
+class TitleRequest(BaseModel):
+    title: str
+    user_id: str
+
+class TitleResponse(BaseModel):
+    document_id: str
+
+@router.post("/api/title", response_model=TitleResponse)
+async def save_title(request: TitleRequest):
+    try:
+        # Create document structure
+        essay_document = {
+            "title": request.title,
+            "user_id":request.user_id,
+            "created_at": datetime.utcnow()
+        }
+        
+        # Insert into MongoDB
+        inserted_document = essays_collection.insert_one(essay_document)
+        
+        # Return the string representation of ObjectId
+        return {"document_id": str(inserted_document.inserted_id)}
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error saving title: {str(e)}"
+        )
+
 # Route for Essay Generation
 @router.post("/api/generate-essay", response_model=GenerateEssayResponse)
 async def generate_essay_api(request: GenerateEssayRequest):

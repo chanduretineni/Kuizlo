@@ -279,16 +279,16 @@ async def fetch_all_articles(query: str):
                 print(f"Validation error: {e}")
                 continue
 
-        #Insert the query, title, and references into the essays collection
-        essay_document = {
-            "title": query,
-            "references": validated[:15],  
-            "created_at": datetime.utcnow()
-        }
-        inserted_document = essays_collection.insert_one(essay_document)
+        # #Insert the query, title, and references into the essays collection
+        # essay_document = {
+        #         "title": query,
+        #         "references": [ref.dict() for ref in validated[:15]],
+        #         "created_at": datetime.utcnow()
+        #     }
+        # inserted_document = essays_collection.insert_one(essay_document)
         
         # Return the document ID and references
-        return QueryResponse(document_id=str(inserted_document.inserted_id), references=validated[:15])
+        return QueryResponse(references=validated[:15])
         
     except Exception as e:
         print(f"Critical error: {str(e)}")

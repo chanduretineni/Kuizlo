@@ -16,8 +16,13 @@ class ReferenceObject(BaseModel):
 
 
 class QueryResponse(BaseModel):
-    document_id: str
     references: List[ReferenceObject]
+
+class TitleRequest(BaseModel):
+    title: str
+
+class TitleResponse(BaseModel):
+    document_id: str
 
 class Reference(BaseModel):
     id: str
