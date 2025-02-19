@@ -7,7 +7,6 @@ import requests
 import google.auth.transport.requests
 from google.oauth2.id_token import verify_oauth2_token
 from db.mongo_db import db
-from config import GOOGLE_CLIENT_ID
 from fastapi.responses import JSONResponse
 from uuid import uuid4  
 
@@ -31,19 +30,6 @@ def create_access_token(data: dict):
     expire = datetime.utcnow() + timedelta(days=TOKEN_EXPIRATION_DAYS)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-def verify_google_token(token: str):
-    try:
-        payload = verify_oauth2_token(token, google.auth.transport.requests.Request(), GOOGLE_CLIENT_ID)
-        return payload
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail="Invalid Google token")
-
-def verify_apple_token(token: str):
-    response = requests.post("https://appleid.apple.com/auth/token", data={"token": token})
-    if response.status_code != 200:
-        raise HTTPException(status_code=400, detail="Invalid Apple token")
-    return response.json()
-
 
 async def signup_process(signup_request: SignupRequest):
     if signup_request.email:
