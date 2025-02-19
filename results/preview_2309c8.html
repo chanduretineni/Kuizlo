@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<body>
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Task Preview</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .task {
+            border: 1px solid #ccc;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .task-header h2 {
+            margin: 0;
+        }
+        .collapsible {
+            cursor: pointer;
+            background-color: #f1f1f1;
+            border: none;
+            text-align: left;
+            outline: none;
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+        }
+        .content {
+            padding: 0 15px;
+            display: none;
+            overflow: hidden;
+            background-color: #f9f9f9;
+        }
+        .validation-question {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="task" aria-label="Task 1">
+    <div class="task-header">
+        <h2>Task 1: Analysis</h2>
+        <button class="collapsible" aria-label="Toggle Objective">Objective</button>
+    </div>
+    <div class="content" aria-label="Task 1 Objective">
+        <p>To extract relevant information from the case study and provide accurate answers to the questions.</p>
+    </div>
+    <h3>Related Content Excerpts</h3>
+    <p>Refer to the Case Study above, write the answers to the following questions.</p>
+    <h3>Suggested Methodologies</h3>
+    <ul>
+        <li>Read the case study thoroughly to understand the context.</li>
+        <li>Identify key points and details that relate to the questions.</li>
+        <li>Draft comprehensive answers ensuring all parts of each question are addressed.</li>
+    </ul>
+    <h3>Validation Questions</h3>
+    <div class="validation-question">
+        <p>Have all parts of each question been addressed?</p>
+        <button>Yes</button>
+        <button>No</button>
+        <p><em>Rationale: Ensures completeness of the analysis.</em></p>
+    </div>
+    <div class="validation-question">
+        <p>Is the information extracted from the case study relevant to the questions?</p>
+        <button>Yes</button>
+        <button>No</button>
+        <p><em>Rationale: Confirms the relevance and accuracy of the answers.</em></p>
+    </div>
+</div>
+
+<div class="task" aria-label="Task 2">
+    <div class="task-header">
+        <h2>Task 2: Quality Assurance</h2>
+        <button class="collapsible" aria-label="Toggle Objective">Objective</button>
+    </div>
+    <div class="content" aria-label="Task 2 Objective">
+        <p>To verify that the answers are well-structured and meet the required format.</p>
+    </div>
+    <h3>Related Content Excerpts</h3>
+    <p>Ensure the answers are formatted correctly and adhere to the mark allocation.</p>
+    <h3>Suggested Methodologies</h3>
+    <ul>
+        <li>Review the mark allocation guidelines for each question.</li>
+        <li>Format answers according to specified guidelines.</li>
+        <li>Check for consistency in presentation and alignment with mark allocation.</li>
+    </ul>
+    <h3>Validation Questions</h3>
+    <div class="validation-question">
+        <p>Do the answers adhere to the specified format?</p>
+        <button>Yes</button>
+        <button>No</button>
+        <p><em>Rationale: Ensures consistency and clarity in presentation.</em></p>
+    </div>
+    <div class="validation-question">
+        <p>Is the length of each answer appropriate for the mark allocation?</p>
+        <button>Yes</button>
+        <button>No</button>
+        <p><em>Rationale: Validates that the answers are proportional to the marks assigned.</em></p>
+    </div>
+</div>
+
+<script>
+    document.querySelectorAll('.collapsible').forEach(button => {
+        button.addEventListener('click', function() {
+            this.classList.toggle('active');
+            const content = this.nextElementSibling;
+            if (content.style.display === "block") {
+                content.style.display = "none";
+            } else {
+                content.style.display = "block";
+            }
+        });
+    });
+</script>
+
+</body>
+</html>
+```
+</body>
+</html>
